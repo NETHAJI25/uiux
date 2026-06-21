@@ -1,0 +1,47 @@
+{
+  "note": "3 days, 7 reels (max 3/day). Post at IST: Slot1=7-8AM, Slot2=12-1PM, Slot3=6-8PM. Strongest designs first.",
+  "timing_rationale": {
+    "7-8AM": "Morning scroll peak. Users check Instagram immediately after waking. Algorithm favors early posts — 7AM gives 1hr runway before 8-9AM commute rush.",
+    "12-1PM": "Lunch break window. Office workers, students open Instagram during lunch. Shorter attention — hooks must grab in under 2 seconds.",
+    "6-8PM": "Highest traffic window in India. Post-work relaxation, users are deeply scrolling. Best for high-retention content (tutorials, carousels, breakdowns)."
+  },
+  "days": [
+    {
+      "day": 1,
+      "label": "Day 1 — Strongest Openers (3 reels)",
+      "slot1_7AM": "Michael Smith Portfolio (keyword: PORTFOLIO) — best performer, 33 likes previously",
+      "slot2_12PM": "NEXOVA 404 (keyword: FIX) — universal pain point, high engagement potential",
+      "slot3_6PM": "VANGUARD Hero (keyword: VANGUARD) — agency credibility, strong evening watch"
+    },
+    {
+      "day": 2,
+      "label": "Day 2 — Curiosity & Numbers (3 reels)",
+      "slot1_7AM": "Mainframe Hero (keyword: SCRUB) — interactive wow, morning curiosity",
+      "slot2_12PM": "Asme Hero (keyword: CONVERT) — 12k subscribers hook, strong lunch hook",
+      "slot3_6PM": "Mentality SaaS (keyword: SAAS) — 14.2% conversion data, best for evening"
+    },
+    {
+      "day": 3,
+      "label": "Day 3 — Closer (1 reel, then restart cycle)",
+      "slot1_7AM": "Spade Hero (keyword: TYPE) — 31% conversion psychology hook",
+      "note": "After Day 3, repeat cycle with remaining designs or pick next best"
+    }
+  ],
+  "remaining_designs": [
+    "Lithos Hero (SPOTLIGHT) — cursor trick, 10x time-on-page",
+    "TOONHUB Carousel (TOON) — color psychology carousel",
+    "RIVR DeFi (DEFI) — $2.4B TVL dashboard",
+    "Glowing Feature Cards (GLOW) — 40% engagement boost",
+    "securify Hero (SECURE) — 67% lower bounce rate",
+    "Aethera Hero (LOOP) — hypnotic video loop",
+    "quietpress Hero (VINYL) — boomerang music label",
+    "Prisma Studio (PRISMA) — scroll animation",
+    "SkyElite Hero (JET) — luxury landing page",
+    "Orbis.Nft (ORBIS) — 240 ETH NFT page",
+    "Aurai Hero (CALM) — wellness app redesign",
+    "Velorah Hero (SILENCE) — cinematic hero",
+    "Mindloop (MINIMAL) — monochrome design",
+    "Max Reed Portfolio (DARK) — client-getting portfolio",
+    "Viktor Oddy (STUDIO) — $0 hosting looks $50k"
+  ]
+}
