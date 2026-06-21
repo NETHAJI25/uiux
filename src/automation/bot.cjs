@@ -17,6 +17,11 @@ try { KEYWORDS = JSON.parse(process.env.KEYWORDS_JSON || 'null') || CONFIG.keywo
 // Reply comment template (customizable in Settings)
 let REPLY_TEMPLATE = process.env.REPLY_TEMPLATE || CONFIG.reply_template || '✅ "{keyword}" received! Check your DMs 📩';
 
+// Per-post keyword assignments: { mediaId: [keyword1, keyword2, ...] }
+// If a post has no entry, all keywords are active (backward compatible)
+let POST_KEYWORDS = {};
+try { POST_KEYWORDS = JSON.parse(process.env.POST_KEYWORDS_JSON || 'null') || CONFIG.post_keywords || {}; } catch(e) {}
+
 const PROCESSED_FILE = path.join(__dirname, 'processed.json');
 const STATS_FILE = path.join(__dirname, 'stats.json');
 
@@ -64,6 +69,11 @@ async function processComments(mediaId) {
     stats.totalCommentsFound++;
     const keyword = extractKeyword(c.text);
     if (!keyword) continue;
+
+    // Check if this keyword is allowed for this post
+    const allowed = POST_KEYWORDS[mediaId];
+    if (allowed && !allowed.includes(keyword)) continue;
+
     stats.totalCommentsProcessed++;
     stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
 
@@ -198,6 +208,7 @@ const HTML = `<!DOCTYPE html>
   .inbox-item .head .time { font-size:11px; color:var(--muted); }
   .inbox-item .comment { font-size:12px; color:#bbb; margin-bottom:6px; }
   .inbox-item .status { display:flex; gap:6px; flex-wrap:wrap; }
+  .kw-toggle:hover { filter:brightness(1.15); }
 </style>
 </head>
 <body>
@@ -206,6 +217,7 @@ const HTML = `<!DOCTYPE html>
   <div class="brand">IG Auto-DM <small>v2</small></div>
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span> Dashboard</button>
   <button class="nav-item" data-page="keywords"><span class="icon">⚡</span> Keywords</button>
+  <button class="nav-item" data-page="posts"><span class="icon">📹</span> Posts</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span> Inbox</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span> Settings</button>
   <div class="footer"><div id="sbUptime">--</div><div id="sbPolls">--</div></div>
@@ -249,6 +261,12 @@ const HTML = `<!DOCTYPE html>
   <div id="inboxContent"><div class="empty"><div class="icon">📭</div><p>No activity yet.</p></div></div>
 </div>
 
+<!-- POSTS -->
+<div class="page" id="page-posts">
+  <div class="help"><strong>📹 Assign keywords to specific posts:</strong> Select which keywords should be active on each Instagram post. Only the assigned keywords will trigger auto-replies on that post. Posts with no selection = all keywords active.</div>
+  <div id="postsList"><div class="empty"><div class="icon">📹</div><p>Loading posts...</p></div></div>
+</div>
+
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
   <div class="section-label">Reply Comment</div>
@@ -276,10 +294,11 @@ const HTML = `<!DOCTYPE html>
 
 <!-- Bottom Nav -->
 <div class="bottom-nav">
-  <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Dashboard</button>
-  <button class="nav-item" data-page="keywords"><span class="icon">⚡</span>Keywords</button>
+  <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Home</button>
+  <button class="nav-item" data-page="keywords"><span class="icon">⚡</span>Triggers</button>
+  <button class="nav-item" data-page="posts"><span class="icon">📹</span>Posts</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span>Inbox</button>
-  <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Settings</button>
+  <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Set</button>
 </div>
 
 <!-- Modal -->
@@ -303,6 +322,7 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   el.classList.add('active');
   document.getElementById('page-'+el.dataset.page).classList.add('active');
   if(el.dataset.page==='keywords') loadKW();
+  if(el.dataset.page==='posts') loadPosts();
   if(el.dataset.page==='inbox') loadInbox();
 })});
 
@@ -378,6 +398,54 @@ async function loadInbox(){
   }catch(e){toast('Failed to load inbox','err');}
 }
 
+// POSTS
+let POSTS = []; let POST_ASGN = {};
+async function loadPosts(){
+  try{
+    if(!Object.keys(KW).length){const r=await fetch('/api/keywords');const d=await r.json();KW=d.keywords||{};}
+    const r=await fetch('/api/posts'); const d=await r.json();
+    POSTS=d.posts||[]; POST_ASGN=d.assignments||{};
+    renderPosts();
+  }catch(e){document.getElementById('postsList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed to load posts.</p></div>';}
+}
+function renderPosts(){
+  const div=document.getElementById('postsList'),keys=Object.keys(KW);
+  const total=POSTS.length;
+  if(!total){div.innerHTML='<div class="empty"><div class="icon">📹</div><p>No posts found on this account.</p></div>';return;}
+  if(!keys.length){div.innerHTML='<div class="help">Create keywords first in the <strong>Triggers</strong> tab, then assign them to posts here.</div>';return;}
+  let h='';
+  for(const p of POSTS){
+    const pid=p.id;
+    const activeKeywords=POST_ASGN[pid]||[];
+    const cap=p.caption?p.caption.substring(0,80)+(p.caption.length>80?'...':''):'No caption';
+    const typeIcon=p.media_type==='VIDEO'?'🎬':p.media_type==='CAROUSEL_ALBUM'?'📑':'🖼️';
+    const ts=p.timestamp?new Date(p.timestamp).toLocaleDateString():'';
+    h+='<div class="inbox-item" data-pid="'+pid+'">'
+      +'<div class="head"><span class="user">'+typeIcon+' '+esc(cap)+'</span><span class="time">'+ts+'</span></div>'
+      +'<div style="font-size:10px;color:var(--muted);margin-bottom:6px;">ID: <span class="code">'+pid+'</span></div>'
+      +'<div class="flex flex-wrap" style="gap:4px;">';
+    for(const k of keys){
+      const isOn=activeKeywords.includes(k);
+      h+='<button class="kw-toggle" data-pid="'+pid+'" data-kw="'+k+'" style="'+kwToggleStyle(isOn)+'" onclick="togglePostKW(this)">'+k+' '+(isOn?'✓':'')+'</button>';
+    }
+    h+='</div></div>';
+  }
+  div.innerHTML=h+'<div style="margin-top:12px;text-align:center;"><button class="btn btn-p" onclick="savePostAssignments()">Save Assignments</button></div>';
+}
+function kwToggleStyle(on){return on?'background:#052e16;color:#86efac;padding:4px 10px;border-radius:6px;border:1px solid #22c55e44;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.1s;':'background:#1c1c20;color:var(--muted);padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:.1s;';}
+function togglePostKW(el){
+  const pid=el.dataset.pid,kw=el.dataset.kw;
+  if(!POST_ASGN[pid]) POST_ASGN[pid]=[];
+  const idx=POST_ASGN[pid].indexOf(kw);
+  if(idx>-1){POST_ASGN[pid].splice(idx,1);el.style.cssText=kwToggleStyle(false);el.textContent=kw;}
+  else{POST_ASGN[pid].push(kw);el.style.cssText=kwToggleStyle(true);el.textContent=kw+' ✓';}
+}
+async function savePostAssignments(){
+  const r=await fetch('/api/post-keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:POST_ASGN})});
+  const d=await r.json();
+  if(d.ok){toast('Post keyword assignments saved! ✅');}else{toast('Failed to save','err');}
+}
+
 // SETTINGS
 async function refreshSet(){try{const r=await fetch('/api/stats');const d=await r.json();document.getElementById('sUptime').textContent=d.uptimeStr||'--';document.getElementById('sStart').textContent=d.startTime?new Date(d.startTime).toLocaleString():'--';}catch(e){}}
 setInterval(refreshSet,10000); refreshSet();
@@ -425,6 +493,29 @@ http.createServer((req, res) => {
         KEYWORDS = keywords;
         try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.keywords = keywords; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
         res.writeHead(200); res.end(JSON.stringify({ ok: true, count: Object.keys(KEYWORDS).length }));
+      } catch(e) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid JSON' })); }
+    });
+    return;
+  }
+
+  if (url === '/api/posts' && method === 'GET') {
+    apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,timestamp&limit=25`).then(posts => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ posts: posts.data || [], assignments: POST_KEYWORDS }));
+    }).catch(e => { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); });
+    return;
+  }
+
+  if (url === '/api/post-keywords' && method === 'POST') {
+    let b = '';
+    req.on('data', c => b += c);
+    req.on('end', () => {
+      try {
+        const { assignments } = JSON.parse(b);
+        if (!assignments) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing assignments' })); return; }
+        POST_KEYWORDS = assignments;
+        try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.post_keywords = assignments; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
+        res.writeHead(200); res.end(JSON.stringify({ ok: true }));
       } catch(e) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid JSON' })); }
     });
     return;
