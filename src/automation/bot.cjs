@@ -118,7 +118,12 @@ async function run() {
   stats.totalPolls++; stats.lastPollTime = Date.now();
   console.log(`\n[${new Date().toLocaleTimeString()}] Polling Instagram...`);
   const media = await apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,comments_count&limit=5`);
-  if (!media.data || media.data.length === 0) { console.log('  No media found'); saveStats(); return; }
+  if (media.error) {
+    stats.totalErrors++; stats.lastError = `API error: ${media.error.message || JSON.stringify(media.error)}`;
+    console.log(`  ❌ API ERROR: ${media.error.message || JSON.stringify(media.error)}`);
+    saveStats(); return;
+  }
+  if (!media.data || media.data.length === 0) { console.log('  No media found — account has no posts or token cannot access them'); saveStats(); return; }
   for (const post of media.data) {
     console.log(`  Checking post ${post.id} (${post.comments_count || 0} comments)...`);
     if ((post.comments_count || 0) > 0) await processComments(post.id);
