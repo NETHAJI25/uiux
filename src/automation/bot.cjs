@@ -14,6 +14,9 @@ const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_
 let KEYWORDS = {};
 try { KEYWORDS = JSON.parse(process.env.KEYWORDS_JSON || 'null') || CONFIG.keywords || {}; } catch(e) {}
 
+// Reply comment template (customizable in Settings)
+let REPLY_TEMPLATE = process.env.REPLY_TEMPLATE || CONFIG.reply_template || '✅ "{keyword}" received! Check your DMs 📩';
+
 const PROCESSED_FILE = path.join(__dirname, 'processed.json');
 const STATS_FILE = path.join(__dirname, 'stats.json');
 
@@ -64,20 +67,18 @@ async function processComments(mediaId) {
     stats.totalCommentsProcessed++;
     stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
 
-    // Check if this is an old comment (before bot started) — silently mark, don't reply
     const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
     const isOld = commentTime < BOT_START_TIME;
 
     if (isOld) {
-      // Silently mark old comments as processed — no reply, no DM
-      saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, replyOk: false, dmOk: false, fallback: false, skipped: true, ts: Date.now() });
+      saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk: false, dmOk: false, fallback: false, skipped: true, ts: Date.now() });
       saveStats();
       continue;
     }
 
     stats.lastActivityTime = Date.now();
     const dmMsg = KEYWORDS[keyword];
-    const replyTxt = `\u2705 "${keyword}" received! Check your DMs \uD83D\uDCE9`;
+    const replyTxt = REPLY_TEMPLATE.replace(/{keyword}/g, keyword);
     const replyResult = await replyToComment(c.id, replyTxt);
     let replyOk = false, dmOk = false, fb = false;
     if (replyResult.error) { stats.totalErrors++; stats.lastError=`Reply error: ${JSON.stringify(replyResult.error)}`; console.log(`  Reply error: ${JSON.stringify(replyResult.error)}`); }
@@ -89,7 +90,7 @@ async function processComments(mediaId) {
       await replyToComment(c.id, dmMsg); fb = true;
       stats.totalFallbackReplies++; console.log(`  \u26A0\uFE0F Sent link as comment reply instead`);
     } else { stats.totalDMsent++; dmOk = true; console.log(`  \u2705 DM sent to ${c.from.username}`); }
-    saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, replyOk, dmOk, fallback: fb, skipped: false, ts: Date.now() });
+    saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk, dmOk, fallback: fb, skipped: false, ts: Date.now() });
     saveStats();
   }
 }
@@ -250,6 +251,12 @@ const HTML = `<!DOCTYPE html>
 
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
+  <div class="section-label">Reply Comment</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">What the bot replies publicly (use <span class="code">{keyword}</span> as placeholder)</div>
+    <div class="flex"><input id="replyTemplateInput" value="${REPLY_TEMPLATE}" style="font-size:12px;"><button class="btn btn-p btn-s" onclick="saveReplyTemplate()">Save</button></div>
+    <div id="replyPreview" style="font-size:11px;color:var(--muted);margin-top:4px;">Preview: ${REPLY_TEMPLATE.replace(/{keyword}/g, 'PORTFOLIO')}</div>
+  </div>
   <div class="section-label">Status</div>
   <div class="box">
     <div class="r"><span class="lbl">Status</span><span class="val"><span class="chip chip-done">● Live</span></span></div>
@@ -359,6 +366,7 @@ async function loadInbox(){
       h+='<div class="inbox-item" style="'+(skipped?'opacity:0.5;':'')+'">'
         +'<div class="head"><span class="user">@'+(item.username||'unknown')+'</span><span class="time">'+t+'</span></div>'
         +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span></div>'
+        +'<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Post: <span class="code">'+(item.mediaId||'?')+'</span></div>'
         +'<div class="status">'
         +(skipped
           ? '<span class="chip chip-warn">⏭ Skipped (old comment)</span>'
@@ -373,6 +381,14 @@ async function loadInbox(){
 // SETTINGS
 async function refreshSet(){try{const r=await fetch('/api/stats');const d=await r.json();document.getElementById('sUptime').textContent=d.uptimeStr||'--';document.getElementById('sStart').textContent=d.startTime?new Date(d.startTime).toLocaleString():'--';}catch(e){}}
 setInterval(refreshSet,10000); refreshSet();
+async function saveReplyTemplate(){
+  const val = document.getElementById('replyTemplateInput').value.trim();
+  if(!val){toast('Enter a reply template','err');return;}
+  const r=await fetch('/api/reply-template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template:val})});
+  const d=await r.json();
+  if(d.ok){toast('Reply comment saved!');document.getElementById('replyPreview').textContent='Preview: '+val.replace(/{keyword}/g,'PORTFOLIO');}
+  else{toast('Failed to save','err');}
+}
 </script>
 </body>
 </html>`;
@@ -414,10 +430,25 @@ http.createServer((req, res) => {
     return;
   }
 
+  if (url === '/api/reply-template' && method === 'POST') {
+    let b = '';
+    req.on('data', c => b += c);
+    req.on('end', () => {
+      try {
+        const { template } = JSON.parse(b);
+        if (!template) { res.writeHead(400); res.end(JSON.stringify({ error: 'Missing template' })); return; }
+        REPLY_TEMPLATE = template;
+        try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.reply_template = template; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
+        res.writeHead(200); res.end(JSON.stringify({ ok: true }));
+      } catch(e) { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid JSON' })); }
+    });
+    return;
+  }
+
   if (url === '/api/inbox' && method === 'GET') {
     const items = loadProcessed();
     // Handle legacy format
-    const normalized = items.map(i => ({ id: i.id || '', username: i.username || 'unknown', text: i.text || '', keyword: i.keyword || '?', replyOk: i.replyOk || false, dmOk: i.dmOk || false, fallback: i.fallback || false, skipped: i.skipped || false, ts: i.ts || 0 }));
+    const normalized = items.map(i => ({ id: i.id || '', username: i.username || 'unknown', text: i.text || '', keyword: i.keyword || '?', mediaId: i.mediaId || '', replyOk: i.replyOk || false, dmOk: i.dmOk || false, fallback: i.fallback || false, skipped: i.skipped || false, ts: i.ts || 0 }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ items: normalized }));
     return;
