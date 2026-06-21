@@ -356,6 +356,25 @@ async function refreshDash(){
 }
 refreshDash(); setInterval(refreshDash,8000);
 
+// DIAGNOSTIC: show fetch errors on dashboard
+(async function(){
+  try {
+    let r = await fetch('/api/stats');
+    let txt = await r.text();
+    let el = document.createElement('div');
+    el.style.cssText = 'background:#1a0a0a;border:1px solid #ef444444;border-radius:8px;padding:10px;font-size:11px;margin-bottom:12px;color:#fca5a5;';
+    try{ JSON.parse(txt); el.style.display='none'; }catch(e){
+      el.innerHTML = '<strong>⚠️ API Error:</strong> /api/stats returned non-JSON. Status: '+r.status+'<br>Response preview: '+esc(txt.substring(0,100));
+      document.getElementById('page-dashboard').insertBefore(el, document.getElementById('page-dashboard').firstChild);
+    }
+  } catch(e) {
+    let el = document.createElement('div');
+    el.style.cssText = 'background:#1a0a0a;border:1px solid #ef444444;border-radius:8px;padding:10px;font-size:11px;margin-bottom:12px;color:#fca5a5;';
+    el.innerHTML = '<strong>⚠️ Fetch Failed:</strong> Cannot reach /api/stats: '+esc(e.message);
+    document.getElementById('page-dashboard').insertBefore(el, document.getElementById('page-dashboard').firstChild);
+  }
+})();
+
 // KEYWORDS
 async function loadKW(){try{const r=await fetch('/api/keywords');const d=await r.json();KW=d.keywords||{};renderKW();}catch(e){toast('Failed to load','err');}}
 function renderKW(){
@@ -480,6 +499,7 @@ http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  if (url === '/api/stats' || url === '/api/keywords' || url === '/api/inbox' || url === '/api/posts') console.log(`  📡 ${method} ${url}`);
 
   if (url === '/api/stats' && method === 'GET') {
     stats.uptime = Date.now() - stats.startTime;
