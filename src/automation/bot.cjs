@@ -49,8 +49,11 @@ function extractKeyword(text) { const u=text.toUpperCase(); for (const k of Obje
 async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/replies?message=${encodeURIComponent(msg)}&access_token=${TOKEN}`, 'POST'); }
 async function sendDM(recipientId, msg) { try { return await apiRequest(`/${IG_ID}/messages?access_token=${TOKEN}`, 'POST', { recipient: { id: recipientId }, message: { text: msg } }); } catch(e) { return { error: e.message }; } }
 
+// Track bot start time to avoid re-replying to old comments on restart
+const BOT_START_TIME = Date.now();
+
 async function processComments(mediaId) {
-  const comments = await apiRequest(`/${mediaId}/comments?fields=id,text,username,from{id,username}&limit=50`);
+  const comments = await apiRequest(`/${mediaId}/comments?fields=id,text,username,timestamp,from{id,username}&limit=50`);
   if (!comments.data) return;
   const processed = loadProcessed();
   for (const c of comments.data) {
@@ -60,6 +63,18 @@ async function processComments(mediaId) {
     if (!keyword) continue;
     stats.totalCommentsProcessed++;
     stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
+
+    // Check if this is an old comment (before bot started) — silently mark, don't reply
+    const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
+    const isOld = commentTime < BOT_START_TIME;
+
+    if (isOld) {
+      // Silently mark old comments as processed — no reply, no DM
+      saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, replyOk: false, dmOk: false, fallback: false, skipped: true, ts: Date.now() });
+      saveStats();
+      continue;
+    }
+
     stats.lastActivityTime = Date.now();
     const dmMsg = KEYWORDS[keyword];
     const replyTxt = `\u2705 "${keyword}" received! Check your DMs \uD83D\uDCE9`;
@@ -74,7 +89,7 @@ async function processComments(mediaId) {
       await replyToComment(c.id, dmMsg); fb = true;
       stats.totalFallbackReplies++; console.log(`  \u26A0\uFE0F Sent link as comment reply instead`);
     } else { stats.totalDMsent++; dmOk = true; console.log(`  \u2705 DM sent to ${c.from.username}`); }
-    saveProcessed({ id: c.id, username: c.from.username, text: c.text, keyword, replyOk, dmOk, fallback: fb, ts: Date.now() });
+    saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, replyOk, dmOk, fallback: fb, skipped: false, ts: Date.now() });
     saveStats();
   }
 }
@@ -340,13 +355,16 @@ async function loadInbox(){
     let h='';
     for(const item of d.items.slice().reverse()){
       const t=item.ts?new Date(item.ts).toLocaleString():'--';
-      h+='<div class="inbox-item">'
+      const skipped = item.skipped;
+      h+='<div class="inbox-item" style="'+(skipped?'opacity:0.5;':'')+'">'
         +'<div class="head"><span class="user">@'+(item.username||'unknown')+'</span><span class="time">'+t+'</span></div>'
         +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span></div>'
         +'<div class="status">'
-        +'<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'\u2705':'\u274C')+'</span>'
-        +'<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'\u2705':item.fallback?'\u26A0\uFE0F Fallback':'\u274C')+'</span>'
-        +'</div></div>';
+        +(skipped
+          ? '<span class="chip chip-warn">⏭ Skipped (old comment)</span>'
+          : '<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'\u2705':'\u274C')+'</span>'
+          + '<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'\u2705':item.fallback?'\u26A0\uFE0F Fallback':'\u274C')+'</span>'
+        )+'</div></div>';
     }
     div.innerHTML=h;
   }catch(e){toast('Failed to load inbox','err');}
@@ -398,8 +416,8 @@ http.createServer((req, res) => {
 
   if (url === '/api/inbox' && method === 'GET') {
     const items = loadProcessed();
-    // Handle legacy format (just {id, ts})
-    const normalized = items.map(i => typeof i.id ? { id: i.id, username: i.username || 'unknown', text: i.text || '', keyword: i.keyword || '?', replyOk: i.replyOk || false, dmOk: i.dmOk || false, fallback: i.fallback || false, ts: i.ts || 0 } : i);
+    // Handle legacy format
+    const normalized = items.map(i => ({ id: i.id || '', username: i.username || 'unknown', text: i.text || '', keyword: i.keyword || '?', replyOk: i.replyOk || false, dmOk: i.dmOk || false, fallback: i.fallback || false, skipped: i.skipped || false, ts: i.ts || 0 }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ items: normalized }));
     return;
