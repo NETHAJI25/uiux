@@ -61,58 +61,68 @@ async function sendDM(recipientId, msg) { try { return await apiRequest(`/${IG_I
 const BOT_START_TIME = Date.now();
 
 async function processComments(mediaId) {
-  const comments = await apiRequest(`/${mediaId}/comments?fields=id,text,username,timestamp,from{id,username}&limit=50`);
-  if (!comments.data) return;
-  const processed = loadProcessed();
-  for (const c of comments.data) {
-    if (processed.some(p => p.id === c.id)) continue;
-    stats.totalCommentsFound++;
-    const keyword = extractKeyword(c.text);
-    if (!keyword) continue;
+  try {
+    const comments = await apiRequest(`/${mediaId}/comments?fields=id,text,username,timestamp,from{id,username}&limit=50`);
+    if (!comments || !comments.data) return;
+    const processed = loadProcessed();
+    for (const c of comments.data) {
+      if (processed.some(p => p.id === c.id)) continue;
+      stats.totalCommentsFound++;
+      const keyword = extractKeyword(c.text);
+      if (!keyword) continue;
 
-    // Check if this keyword is allowed for this post
-    const allowed = POST_KEYWORDS[mediaId];
-    if (allowed && !allowed.includes(keyword)) continue;
+      // Check if this keyword is allowed for this post
+      const allowed = POST_KEYWORDS[mediaId];
+      if (allowed && !allowed.includes(keyword)) continue;
 
-    stats.totalCommentsProcessed++;
-    stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
+      stats.totalCommentsProcessed++;
+      stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
 
-    const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
-    const isOld = commentTime < BOT_START_TIME;
+      const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
+      const isOld = commentTime < BOT_START_TIME;
 
-    if (isOld) {
-      saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk: false, dmOk: false, fallback: false, skipped: true, ts: Date.now() });
+      if (isOld) {
+        saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk: false, dmOk: false, fallback: false, skipped: true, ts: Date.now() });
+        saveStats();
+        continue;
+      }
+
+      stats.lastActivityTime = Date.now();
+      const dmMsg = KEYWORDS[keyword];
+      const replyTxt = REPLY_TEMPLATE.replace(/{keyword}/g, keyword);
+      const replyResult = await replyToComment(c.id, replyTxt);
+      let replyOk = false, dmOk = false, fb = false;
+      if (replyResult && replyResult.error) { stats.totalErrors++; stats.lastError=`Reply error: ${JSON.stringify(replyResult.error)}`; console.log(`  Reply error: ${JSON.stringify(replyResult.error)}`); }
+      else { stats.totalRepliesSent++; replyOk = true; console.log(`  ✅ Replied to comment ${c.id}`); }
+      const dmResult = await sendDM(c.from.id, dmMsg);
+      if (dmResult && dmResult.error) {
+        stats.totalErrors++; stats.lastError=`DM error: ${JSON.stringify(dmResult.error)}`;
+        console.log(`  DM error: ${JSON.stringify(dmResult.error)}`);
+        await replyToComment(c.id, dmMsg); fb = true;
+        stats.totalFallbackReplies++; console.log(`  ⚠️ Sent link as comment reply instead`);
+      } else { stats.totalDMsent++; dmOk = true; console.log(`  ✅ DM sent to ${c.from.username}`); }
+      saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk, dmOk, fallback: fb, skipped: false, ts: Date.now() });
       saveStats();
-      continue;
     }
-
-    stats.lastActivityTime = Date.now();
-    const dmMsg = KEYWORDS[keyword];
-    const replyTxt = REPLY_TEMPLATE.replace(/{keyword}/g, keyword);
-    const replyResult = await replyToComment(c.id, replyTxt);
-    let replyOk = false, dmOk = false, fb = false;
-    if (replyResult.error) { stats.totalErrors++; stats.lastError=`Reply error: ${JSON.stringify(replyResult.error)}`; console.log(`  Reply error: ${JSON.stringify(replyResult.error)}`); }
-    else { stats.totalRepliesSent++; replyOk = true; console.log(`  \u2705 Replied to comment ${c.id}`); }
-    const dmResult = await sendDM(c.from.id, dmMsg);
-    if (dmResult.error) {
-      stats.totalErrors++; stats.lastError=`DM error: ${JSON.stringify(dmResult.error)}`;
-      console.log(`  DM error: ${JSON.stringify(dmResult.error)}`);
-      await replyToComment(c.id, dmMsg); fb = true;
-      stats.totalFallbackReplies++; console.log(`  \u26A0\uFE0F Sent link as comment reply instead`);
-    } else { stats.totalDMsent++; dmOk = true; console.log(`  \u2705 DM sent to ${c.from.username}`); }
-    saveProcessed({ id: c.id, username: c.from?.username || '?', text: c.text, keyword, mediaId, replyOk, dmOk, fallback: fb, skipped: false, ts: Date.now() });
-    saveStats();
+  } catch(e) {
+    stats.totalErrors++; stats.lastError=`processComments error: ${e.message||e}`;
+    console.log(`  💥 processComments error: ${e.message||e}`); saveStats();
   }
 }
 
 async function run() {
   stats.totalPolls++; stats.lastPollTime = Date.now();
   console.log(`\n[${new Date().toLocaleTimeString()}] Polling Instagram...`);
-  const media = await apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,comments_count&limit=5`);
-  if (media.error) { stats.totalErrors++; stats.lastError=`API: ${media.error.message||JSON.stringify(media.error)}`; console.log(`  \u2757 API ERROR: ${media.error.message||JSON.stringify(media.error)}`); saveStats(); return; }
-  if (!media.data||!media.data.length) { console.log('  No media found'); saveStats(); return; }
-  for (const p of media.data) { console.log(`  Post ${p.id} (${p.comments_count||0} comments)...`); if ((p.comments_count||0)>0) await processComments(p.id); }
-  console.log('  Done'); saveStats();
+  try {
+    const media = await apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,comments_count&limit=5`);
+    if (!media || media.error) { const msg = media?.error?.message || JSON.stringify(media?.error || 'No response'); stats.totalErrors++; stats.lastError=`API: ${msg}`; console.log(`  ⚠️ API ERROR: ${msg}`); saveStats(); return; }
+    if (!media.data||!media.data.length) { console.log('  No media found'); saveStats(); return; }
+    for (const p of media.data) { console.log(`  Post ${p.id} (${p.comments_count||0} comments)...`); if ((p.comments_count||0)>0) await processComments(p.id); }
+    console.log('  Done'); saveStats();
+  } catch(e) {
+    stats.totalErrors++; stats.lastError=`Network: ${e.message||e}`;
+    console.log(`  💥 NETWORK ERROR: ${e.message||e}`); saveStats();
+  }
 }
 
 // ─── HTML ───
@@ -566,10 +576,13 @@ http.createServer((req, res) => {
   res.end(HTML);
 }).listen(PORT, () => { console.log(`   Dashboard at http://localhost:${PORT}`); });
 
+process.on('unhandledRejection', (err) => { console.error('💥 Unhandled Rejection:', err?.message||err); });
+process.on('uncaughtException', (err) => { console.error('💥 Uncaught Exception:', err?.message||err); });
+
 loadStats();
 console.log('🤖 Instagram Auto-DM Bot Started');
 console.log(`   Polling every ${POLL_INTERVAL}s`);
 console.log(`   Keywords watched: ${Object.keys(KEYWORDS).join(', ')}`);
 console.log('');
-run();
-setInterval(run, POLL_INTERVAL * 1000);
+run().catch(e => { stats.totalErrors++; stats.lastError=`Startup: ${e.message||e}`; saveStats(); });
+setInterval(() => run().catch(e => { stats.totalErrors++; stats.lastError=`Poll: ${e.message||e}`; saveStats(); }), POLL_INTERVAL * 1000);
