@@ -202,10 +202,11 @@ async function processComments(mediaId) {
     for (const c of comments.data) {
       if (processed.some(p => p.id === c.id)) continue;
       stats.totalCommentsFound++;
-      const keyword = extractKeyword(c.text);
+      const postKwList = POST_KEYWORDS[mediaId];
+      if (!postKwList || !postKwList.length) continue;
+      const uText = c.text.toUpperCase();
+      const keyword = postKwList.find(k => uText.includes(k));
       if (!keyword) continue;
-      const allowed = POST_KEYWORDS[mediaId];
-      if (allowed && !allowed.includes(keyword)) continue;
       stats.totalCommentsProcessed++;
       stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
       const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;

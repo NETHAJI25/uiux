@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>IG Auto-DM</title>
 <style>
-  :root { --bg: #0a0a0b; --surface: #141416; --border: #1f1f23; --text: #f5f5f5; --muted: #6b6b7a; --accent: #2563eb; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --radius: 10px; }
+  :root { --bg: #0a0a0b; --surface: #141416; --border: #1f1f23; --text: #f5f5f5; --muted: #6b6b7a; --accent: #2563eb; --accent-hover: #1d4ed8; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --radius: 10px; --radius-sm: 6px; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; }
+  body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; -webkit-font-smoothing:antialiased; }
   .layout { display:flex; min-height:100vh; }
   .sidebar { width:220px; background:var(--surface); border-right:1px solid var(--border); padding:20px 0; flex-shrink:0; display:none; }
-  .sidebar .brand { padding:0 20px 18px; font-size:15px; font-weight:700; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .sidebar .brand { padding:0 20px 18px; font-size:15px; font-weight:700; border-bottom:1px solid var(--border); margin-bottom:8px; letter-spacing:-.3px; }
   .sidebar .brand small { color:var(--muted); font-weight:400; font-size:11px; }
-  .sidebar .nav-item { display:flex; align-items:center; gap:10px; padding:9px 20px; font-size:13px; color:var(--muted); cursor:pointer; transition:.12s; border:none; background:none; width:100%; text-align:left; font-family:inherit; }
+  .sidebar .nav-item { display:flex; align-items:center; gap:10px; padding:9px 20px; font-size:13px; color:var(--muted); cursor:pointer; transition:all .12s; border:none; background:none; width:100%; text-align:left; font-family:inherit; }
   .sidebar .nav-item:hover { color:var(--text); background:#1c1c20; }
   .sidebar .nav-item.active { color:var(--text); background:#0f1a0f; border-right:2px solid var(--green); }
   .sidebar .nav-item .icon { font-size:15px; }
@@ -26,13 +26,14 @@
   .content { flex:1; overflow-y:auto; padding:16px; padding-bottom:80px; }
   @media(min-width:768px){ .sidebar { display:block; } .topbar { display:none; } .content { padding:24px 32px; } .bottom-nav { display:none!important; } }
   .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:50; }
-  .bottom-nav .nav-item { flex:1; padding:6px 4px; text-align:center; border:none; background:none; font-family:inherit; font-size:10px; color:var(--muted); cursor:pointer; }
+  .bottom-nav .nav-item { flex:1; padding:6px 4px; text-align:center; border:none; background:none; font-family:inherit; font-size:10px; color:var(--muted); cursor:pointer; transition:color .12s; }
   .bottom-nav .nav-item .icon { font-size:18px; display:block; margin-bottom:1px; }
   .bottom-nav .nav-item.active { color:var(--accent); }
   .page { display:none; } .page.active { display:block; }
   .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px; }
   @media(min-width:768px){ .grid { grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; } }
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; transition:border-color .12s; }
+  .card:hover { border-color:#333; }
   .card .lbl { font-size:10px; text-transform:uppercase; color:var(--muted); letter-spacing:.3px; }
   .card .val { font-size:24px; font-weight:700; margin-top:2px; line-height:1.2; }
   .card .val.gr { color:var(--green); } .card .val.bl { color:var(--accent); } .card .val.yl { color:var(--yellow); } .card .val.rd { color:var(--red); }
@@ -41,22 +42,22 @@
   .box .r { display:flex; justify-content:space-between; align-items:center; }
   .box .lbl { color:var(--muted); } .box .val { text-align:right; word-break:break-word; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:var(--radius); overflow:hidden; border:1px solid var(--border); font-size:12px; }
-  th { text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; color:var(--muted); letter-spacing:.3px; border-bottom:1px solid var(--border); }
+  th { text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; color:var(--muted); letter-spacing:.3px; border-bottom:1px solid var(--border); font-weight:600; }
   td { padding:8px 10px; border-bottom:1px solid #151518; vertical-align:middle; }
   tr:last-child td { border-bottom:none; }
   .kw { background:#1e2a4a; color:#93c5fd; padding:2px 8px; border-radius:4px; font-weight:700; font-size:11px; white-space:nowrap; }
   .chip { display:inline-block; padding:2px 7px; border-radius:4px; font-size:10px; font-weight:600; }
   .chip-done { background:#052e16; color:#86efac; } .chip-fail { background:#450a0a; color:#fca5a5; } .chip-warn { background:#422006; color:#fde68a; }
-  .btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 14px; border:none; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; transition:.12s; font-family:inherit; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:7px 14px; border:none; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; transition:all .12s; font-family:inherit; }
   .btn:active { transform:scale(.97); }
-  .btn-p { background:var(--accent); color:#fff; } .btn-p:hover { background:#1d4ed8; }
-  .btn-d { background:var(--red); color:#fff; }
+  .btn-p { background:var(--accent); color:#fff; } .btn-p:hover { background:var(--accent-hover); }
+  .btn-d { background:var(--red); color:#fff; } .btn-d:hover { background:#dc2626; }
   .btn-g { background:transparent; color:var(--muted); border:1px solid var(--border); } .btn-g:hover { color:var(--text); border-color:#444; }
   .btn-s { padding:4px 9px; font-size:11px; }
-  input,textarea,select { background:#18181b; border:1px solid var(--border); color:var(--text); padding:9px 12px; border-radius:7px; font-size:13px; width:100%; font-family:inherit; outline:none; }
+  input,textarea,select { background:#18181b; border:1px solid var(--border); color:var(--text); padding:9px 12px; border-radius:7px; font-size:13px; width:100%; font-family:inherit; outline:none; transition:border-color .12s; }
   input:focus,textarea:focus { border-color:var(--accent); }
   textarea { resize:vertical; min-height:60px; }
-  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:flex-end; justify-content:center; z-index:100; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:flex-end; justify-content:center; z-index:100; backdrop-filter:blur(2px); }
   @media(min-width:768px){ .modal-overlay { align-items:center; } }
   .modal-overlay.open { display:flex; }
   .modal { background:var(--surface); border-radius:14px 14px 0 0; padding:20px 16px; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; }
@@ -79,18 +80,46 @@
   .help { background:#0f1a0f; border:1px solid #22c55e22; border-radius:var(--radius); padding:12px; margin-bottom:14px; font-size:13px; line-height:1.6; }
   .help strong { color:var(--green); }
   .code { font-family:monospace; background:#222; padding:1px 4px; border-radius:3px; font-size:11px; }
-  .inbox-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px; }
+  .inbox-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px; transition:border-color .12s; }
+  .inbox-item:hover { border-color:#333; }
   .inbox-item .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
-  .inbox-item .head .user { font-weight:600; font-size:13px; }
+  .inbox-item .head .user { font-weight:600; font-size:13px; cursor:pointer; }
+  .inbox-item .head .user:hover { color:var(--accent); }
   .inbox-item .head .time { font-size:11px; color:var(--muted); }
   .inbox-item .comment { font-size:12px; color:#bbb; margin-bottom:6px; }
   .inbox-item .status { display:flex; gap:6px; flex-wrap:wrap; }
   .err-banner { background:#1a0a0a; border:1px solid #ef444444; border-radius:var(--radius); padding:12px; margin-bottom:14px; font-size:12px; color:#fca5a5; line-height:1.5; }
-  .user-row { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .user-row { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; transition:border-color .12s; }
+  .user-row:hover { border-color:#333; }
   .user-row .name { font-weight:600; font-size:13px; flex:1; min-width:80px; }
   .user-row .count { font-size:11px; color:var(--muted); }
   .user-row .tag-input { flex:1; min-width:100px; padding:4px 8px; font-size:11px; border-radius:4px; }
   .user-row .tag-label { background:#1e2a4a; color:#93c5fd; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
+
+  /* ── Automation Post Cards (ManyChat-style) ── */
+  .auto-post { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; transition:border-color .12s; }
+  .auto-post:hover { border-color:#333; }
+  .auto-post .post-head { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; cursor:pointer; }
+  .auto-post .post-head:hover { background:#111114; }
+  .auto-post .type-badge { flex-shrink:0; font-size:18px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:6px; background:#1a1a1e; border:1px solid var(--border); }
+  .auto-post .post-info { flex:1; min-width:0; }
+  .auto-post .post-info .caption { font-size:13px; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .auto-post .post-info .meta { display:flex; align-items:center; gap:6px; margin-top:2px; }
+  .auto-post .post-info .meta span { font-size:10px; color:var(--muted); }
+  .auto-post .post-info .meta .kw-count { color:var(--accent); font-weight:600; }
+  .auto-post .post-body { padding:0 14px 14px; }
+  .auto-post .kw-card { display:flex; align-items:center; gap:8px; padding:8px 10px; background:#1a1a1e; border:1px solid var(--border); border-radius:var(--radius-sm); margin-top:8px; }
+  .auto-post .kw-card .kw { flex-shrink:0; }
+  .auto-post .kw-card .dm-preview { flex:1; font-size:11px; color:#999; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .auto-post .kw-card .kw-actions { flex-shrink:0; display:flex; gap:4px; }
+  .auto-post .kw-card .kw-actions .btn { padding:3px 7px; font-size:10px; }
+  .auto-post .add-kw-area { margin-top:10px; }
+  .auto-post .no-kws { padding:16px; text-align:center; color:var(--muted); font-size:12px; }
+  .auto-post .post-arrow { font-size:12px; color:var(--muted); transition:transform .2s; }
+  .auto-post .post-arrow.open { transform:rotate(180deg); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#333; border-radius:3px; }
 </style>
 </head>
 <body>
@@ -98,7 +127,7 @@
 <div class="sidebar">
   <div class="brand">IG Auto-DM <small>v3</small></div>
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span> Dashboard</button>
-  <button class="nav-item" data-page="keywords"><span class="icon">⚡</span> Keywords</button>
+  <button class="nav-item" data-page="automation"><span class="icon">🎯</span> Automation</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span> Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span> Users</button>
   <button class="nav-item" data-page="analytics"><span class="icon">📈</span> Analytics</button>
@@ -134,18 +163,13 @@
   </div>
 </div>
 
-<!-- KEYWORDS -->
-<div class="page" id="page-keywords">
-  <div class="help"><strong>⚡ Keywords:</strong> Each keyword triggers auto-reply comment + DM. Add/edit/delete below.</div>
-  <div class="flex flex-wrap mb-1 gap-2">
-    <button class="btn btn-p flex-1" onclick="openKwModal()">+ Add Keyword</button>
-    <button class="btn btn-g" onclick="saveKeywords()" id="kwSaveBtn" style="display:none;">Save Changes</button>
+<!-- AUTOMATION (Post-Specific — ManyChat-style) -->
+<div class="page" id="page-automation">
+  <div class="help">
+    <strong>🎯 Post Automation</strong> — Assign keywords to specific posts/reels.<br>
+    Each keyword <strong>only triggers</strong> on the post you assign it to. No global matching.
   </div>
-  <div id="kwList"><div class="empty"><div class="icon">⚡</div><p>Loading...</p></div></div>
-
-  <div class="section-label" style="margin-top:18px;">📌 Post-Specific Keywords</div>
-  <div class="help"><strong>Assign keywords to specific posts.</strong> Leave empty to allow all keywords on all posts.</div>
-  <div id="postKwList"><div class="empty"><div class="icon">📌</div><p>Loading posts...</p></div></div>
+  <div id="automationContent"><div class="empty"><div class="icon">🎯</div><p>Loading your posts...</p></div></div>
 </div>
 
 <!-- INBOX -->
@@ -230,7 +254,7 @@
       <button class="btn btn-s" id="enforceWindowToggle" onclick="toggleEnforceWindow()" style="min-width:60px;">Loading...</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
-      When ON: users can only receive DMs within 24h of their last interaction. Past that, they get a public notice.
+      When ON: users can only receive DMs within 24h of their last interaction.
     </div>
     <div class="r" style="margin-bottom:6px;">
       <span class="lbl">Inbound DM keyword trigger</span>
@@ -268,17 +292,17 @@
 <!-- Bottom Nav -->
 <div class="bottom-nav">
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Home</button>
-  <button class="nav-item" data-page="keywords"><span class="icon">⚡</span>Triggers</button>
+  <button class="nav-item" data-page="automation"><span class="icon">🎯</span>Auto</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span>Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span>Users</button>
   <button class="nav-item" data-page="analytics"><span class="icon">📈</span>Analytics</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Set</button>
 </div>
 
-<!-- Keyword Modal -->
+<!-- Keyword Modal (per-post context) -->
 <div class="modal-overlay" id="kwModal">
   <div class="modal">
-    <h3 id="modalTitle">Add Keyword</h3>
+    <h3 id="modalTitle">Add Keyword to Post</h3>
     <div class="f"><label>Keyword (what users comment)</label><input id="kwKey" placeholder="e.g. PORTFOLIO" maxlength="30" style="text-transform:uppercase;" autocomplete="off"></div>
     <div class="f"><label>DM Response (what bot sends privately)</label><textarea id="kwVal" rows="3" placeholder="Hey! Here's the link: https://..."></textarea></div>
     <div class="f"><label>Media URL (optional — image to attach to DM)</label><input id="kwMediaUrl" placeholder="https://...image.jpg" autocomplete="off"></div>
@@ -303,7 +327,9 @@
 const API_BASE = 'https://uiux-production-2f71.up.railway.app';
 let KW = {};
 let editKwKey = null;
+let editKwMediaId = null;
 let KEYWORD_CONFIGS = {};
+let POST_ASSIGNMENTS = {};
 
 function toast(m,t){const e=document.createElement('div');e.className='toast '+(t||'ok');e.textContent=m;document.getElementById('toastCont').appendChild(e);setTimeout(()=>e.remove(),3000);}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -313,7 +339,7 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('page-'+el.dataset.page).classList.add('active');
-  if(el.dataset.page==='keywords'){loadKW();loadPostAssignments();}
+  if(el.dataset.page==='automation') loadAutomation();
   if(el.dataset.page==='inbox') loadInbox();
   if(el.dataset.page==='users') loadUsers();
   if(el.dataset.page==='analytics') loadAnalytics();
@@ -362,97 +388,157 @@ async function refreshDash(){
 }
 refreshDash(); setInterval(refreshDash,8000);
 
-// ─── KEYWORDS (with management) ───
-function renderKW(){
-  const keys=Object.keys(KW),div=document.getElementById('kwList');
-  if(!keys.length){div.innerHTML='<div class="empty"><div class="icon">⚡</div><p>No keywords. Tap "+ Add Keyword" to add one.</p></div>';return;}
-  document.getElementById('kwSaveBtn').style.display='block';
-  let h='<table><tr><th>Keyword</th><th>DM Response</th><th></th></tr>';
-  for(const k of keys) h+='<tr><td style="width:70px;"><span class="kw">'+esc(k)+'</span></td>'
-    +'<td style="font-size:11px;max-width:200px;word-break:break-word;line-height:1.4;">'+esc(KW[k])+'</td>'
-    +'<td style="width:80px;"><div class="flex" style="justify-content:flex-end;">'
-    +'<button class="btn btn-s btn-g" onclick="editKw(\''+k+'\')">Edit</button>'
-    +'<button class="btn btn-s btn-d" onclick="delKw(\''+k+'\')">Del</button></div></td></tr>';
-  h+='</table>'; div.innerHTML=h;
+// ─── AUTOMATION (Post-Centric) ───
+async function loadAutomation(){
+  try{
+    const d=await api('/api/posts');
+    const posts=d.posts||[];
+    POST_ASSIGNMENTS=d.assignments||{};
+    // Also load KW dict and keyword_configs for DM responses
+    const kwData=await api('/api/keywords');
+    KW=kwData.keywords||{};
+    const cfgData=await api('/api/config');
+    KEYWORD_CONFIGS=cfgData.keyword_configs||{};
+
+    const div=document.getElementById('automationContent');
+    if(!posts.length){div.innerHTML='<div class="empty"><div class="icon">📷</div><p>No posts found. Make sure your account has posts.</p></div>';return;}
+
+    let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      +'<span style="font-size:12px;color:var(--muted);">'+posts.length+' posts &mdash; click to expand</span>'
+      +'</div>';
+
+    for(const p of posts){
+      const caption=(p.caption||'No caption').substring(0,100);
+      const mediaType=p.media_type||'IMAGE';
+      const typeIcon=mediaType==='VIDEO'?'🎬':mediaType==='CAROUSEL_ALBUM'?'📺':'📷';
+      const assigned=POST_ASSIGNMENTS[p.id]||[];
+      const postId=p.id;
+
+      h+='<div class="auto-post">'
+        +'<div class="post-head" onclick="togglePostBody(\''+postId+'\')">'
+        +'<div class="type-badge">'+typeIcon+'</div>'
+        +'<div class="post-info">'
+        +'<div class="caption">'+esc(caption)+'</div>'
+        +'<div class="meta">'
+        +'<span>'+new Date(p.timestamp).toLocaleDateString()+'</span>'
+        +'<span class="code">'+postId.substring(0,8)+'</span>'
+        +'<span class="kw-count">'+(assigned.length||'No')+' keywords</span>'
+        +'</div></div>'
+        +'<div class="post-arrow" id="arrow-'+postId+'">▾</div>'
+        +'</div>'
+        +'<div class="post-body" id="body-'+postId+'" style="display:none;">';
+
+      if(!assigned.length){
+        h+='<div class="no-kws">No keywords assigned. Add one below.</div>';
+      }else{
+        for(const kw of assigned){
+          const dmMsg=KW[kw]||'';
+          h+='<div class="kw-card">'
+            +'<span class="kw">'+esc(kw)+'</span>'
+            +'<span class="dm-preview" title="'+esc(dmMsg)+'">'+esc(dmMsg.substring(0,60))+(dmMsg.length>60?'...':'')+'</span>'
+            +'<div class="kw-actions">'
+            +'<button class="btn btn-s btn-g" onclick="event.stopPropagation();editPostKw(\''+postId+'\',\''+kw+'\')">Edit</button>'
+            +'<button class="btn btn-s btn-d" onclick="event.stopPropagation();removePostKw(\''+postId+'\',\''+kw+'\')">Del</button>'
+            +'</div></div>';
+        }
+      }
+
+      h+='<div class="add-kw-area">'
+        +'<button class="btn btn-s btn-p w-full" onclick="event.stopPropagation();addPostKw(\''+postId+'\')">+ Add Keyword</button>'
+        +'</div>'
+        +'</div></div>';
+    }
+    div.innerHTML=h;
+  }catch(e){
+    document.getElementById('automationContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';
+  }
 }
-async function loadKW(){try{const d=await api('/api/keywords');KW=d.keywords||{};renderKW();}catch(e){document.getElementById('kwList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}}
-function openKwModal(k){
-  editKwKey=k||null;
-  document.getElementById('modalTitle').textContent=k?'Edit Keyword':'Add Keyword';
-  document.getElementById('kwKey').value=k||'';
-  document.getElementById('kwKey').disabled=!!k;
-  document.getElementById('kwVal').value=k?KW[k]||'':'';
-  document.getElementById('kwMediaUrl').value=k?(KEYWORD_CONFIGS[k]?.media_url||''):'';
+
+function togglePostBody(postId){
+  const body=document.getElementById('body-'+postId);
+  const arrow=document.getElementById('arrow-'+postId);
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  arrow.classList.toggle('open',!isOpen);
+}
+
+function addPostKw(mediaId){
+  editKwMediaId=mediaId;
+  editKwKey=null;
+  document.getElementById('modalTitle').textContent='Add Keyword to Post';
+  document.getElementById('kwKey').value='';
+  document.getElementById('kwKey').disabled=false;
+  document.getElementById('kwVal').value='';
+  document.getElementById('kwMediaUrl').value='';
   document.getElementById('kwModal').classList.add('open');
 }
+
+function editPostKw(mediaId,keyword){
+  editKwMediaId=mediaId;
+  editKwKey=keyword;
+  document.getElementById('modalTitle').textContent='Edit Keyword';
+  document.getElementById('kwKey').value=keyword;
+  document.getElementById('kwKey').disabled=true;
+  document.getElementById('kwVal').value=KW[keyword]||'';
+  document.getElementById('kwMediaUrl').value=KEYWORD_CONFIGS[keyword]?.media_url||'';
+  document.getElementById('kwModal').classList.add('open');
+}
+
 function closeKwModal(){document.getElementById('kwModal').classList.remove('open');}
-function editKw(k){openKwModal(k);}
+
 function saveKw(){
   const key=document.getElementById('kwKey').value.trim().toUpperCase();
   const val=document.getElementById('kwVal').value.trim();
   const mediaUrl=document.getElementById('kwMediaUrl').value.trim();
-  if(!key||!val){toast('Fill both fields','err');return;}
+  if(!key||!val){toast('Fill keyword and DM response','err');return;}
+  if(!editKwMediaId){toast('No post selected','err');return;}
+
+  // Save to global keyword response dict
   KW[key]=val;
+
+  // Save media URL config
   if(mediaUrl){
     KEYWORD_CONFIGS[key]=KEYWORD_CONFIGS[key]||{};
     KEYWORD_CONFIGS[key].media_url=mediaUrl;
-  }else if(KEYWORD_CONFIGS[key]){
+  }else if(KEYWORD_CONFIGS[key]&&KEYWORD_CONFIGS[key].media_url){
     delete KEYWORD_CONFIGS[key].media_url;
     if(!Object.keys(KEYWORD_CONFIGS[key]).length) delete KEYWORD_CONFIGS[key];
   }
-  closeKwModal(); renderKW(); saveKeywords();
+
+  // Add to post assignment
+  if(!POST_ASSIGNMENTS[editKwMediaId]) POST_ASSIGNMENTS[editKwMediaId]=[];
+  if(!POST_ASSIGNMENTS[editKwMediaId].includes(key)){
+    POST_ASSIGNMENTS[editKwMediaId].push(key);
+  }
+
+  closeKwModal();
+  toast('Keyword saved to post!');
+  saveAllAutomation();
 }
-function delKw(k){if(!confirm('Delete "'+k+'"?'))return;delete KW[k];delete KEYWORD_CONFIGS[k];renderKW();saveKeywords();}
-async function saveKeywords(){
+
+async function removePostKw(mediaId,keyword){
+  if(!confirm('Remove "'+keyword+'" from this post?')) return;
+  if(POST_ASSIGNMENTS[mediaId]){
+    POST_ASSIGNMENTS[mediaId]=POST_ASSIGNMENTS[mediaId].filter(k=>k!==keyword);
+    if(!POST_ASSIGNMENTS[mediaId].length) delete POST_ASSIGNMENTS[mediaId];
+  }
+  toast('Keyword removed from post.');
+  saveAllAutomation();
+}
+
+async function saveAllAutomation(){
   try{
-    document.getElementById('kwSaveBtn').textContent='Saving...';
+    // Save post-keyword assignments
+    await api('/api/post-keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:POST_ASSIGNMENTS})});
+    // Save keyword DM responses
     await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});
+    // Save keyword configs (media URLs)
     if(Object.keys(KEYWORD_CONFIGS).length){
       await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword_configs:KEYWORD_CONFIGS})});
     }
-    document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Keywords saved!');
-  }catch(e){document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Failed: '+e.message,'err');}
-}
-
-// ─── POST-KEYWORD ASSIGNMENTS ───
-let POST_ASSIGNMENTS = {};
-async function loadPostAssignments(){
-  try{
-    const d=await api('/api/posts');
-    POST_ASSIGNMENTS=d.assignments||{};
-    const div=document.getElementById('postKwList');
-    if(!d.posts||!d.posts.length){div.innerHTML='<div class="empty"><div class="icon">📌</div><p>No posts found. Make sure your account has posts.</p></div>';return;}
-    const keys=Object.keys(KW);
-    if(!keys.length){div.innerHTML='<div class="empty"><div class="icon">⚡</div><p>Add keywords first, then assign them to posts.</p></div>';return;}
-    let h='<div style="margin-bottom:6px;font-size:11px;color:var(--muted);">'+d.posts.length+' posts loaded</div>';
-    for(const p of d.posts){
-      const caption=(p.caption||'No caption').substring(0,60);
-      const assigned=POST_ASSIGNMENTS[p.id]||[];
-      h+='<div class="inbox-item" style="padding:8px 10px;">'
-        +'<div class="head"><span style="font-size:11px;color:var(--muted);">'+new Date(p.timestamp).toLocaleDateString()+'</span>'
-        +'<span style="font-size:10px;color:var(--muted);" class="code">'+p.id.substring(0,12)+'</span></div>'
-        +'<div style="font-size:11px;color:#bbb;margin-bottom:4px;">'+esc(caption)+'</div>'
-        +'<div class="flex flex-wrap" style="gap:3px;">';
-      for(const k of keys){
-        const isOn=assigned.includes(k);
-        h+='<button class="chip '+(!assigned.length||isOn?'chip-done':'chip-fail')+'" style="cursor:pointer;font-size:10px;padding:1px 5px;border:none;background:'+(isOn||!assigned.length?'#052e16;color:#86efac':'#450a0a;color:#fca5a5')+'" onclick="togglePostKw(\''+p.id+'\',\''+k+'\')">'+k+'</button>';
-      }
-      h+='</div></div>';
-    }
-    div.innerHTML=h;
-  }catch(e){document.getElementById('postKwList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}
-}
-function togglePostKw(postId,keyword){
-  if(!POST_ASSIGNMENTS[postId]) POST_ASSIGNMENTS[postId]=[];
-  const idx=POST_ASSIGNMENTS[postId].indexOf(keyword);
-  if(idx>-1) POST_ASSIGNMENTS[postId].splice(idx,1);
-  else POST_ASSIGNMENTS[postId].push(keyword);
-  const allKeys=Object.keys(KW);
-  if(POST_ASSIGNMENTS[postId].length===allKeys.length) POST_ASSIGNMENTS[postId]=[];
-  savePostAssignments();
-}
-async function savePostAssignments(){
-  try{await api('/api/post-keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:POST_ASSIGNMENTS})}); loadPostAssignments();}catch(e){toast('Failed: '+e.message,'err');}
+    // Reload page
+    loadAutomation();
+  }catch(e){toast('Failed to save: '+e.message,'err');}
 }
 
 // ─── INBOX ───
@@ -610,13 +696,11 @@ async function loadConfig(){
     document.getElementById('sFollowerRefresh').textContent=CONFIG_DATA.followers_last_refreshed||'--';
     document.getElementById('sFollowGateStatus').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
     document.getElementById('sDmQueue').textContent=CONFIG_DATA.dm_queue_length||0;
-    // DM settings
     document.getElementById('enforceWindowToggle').textContent=CONFIG_DATA.enforce_24h_window?'ON ✅':'OFF';
     document.getElementById('enforceWindowToggle').className='btn btn-s '+(CONFIG_DATA.enforce_24h_window?'btn-p':'btn-g');
     document.getElementById('dmKeywordToggle').textContent=CONFIG_DATA.dm_keyword_enabled?'ON ✅':'OFF';
     document.getElementById('dmKeywordToggle').className='btn btn-s '+(CONFIG_DATA.dm_keyword_enabled?'btn-p':'btn-g');
     document.getElementById('windowExpiredMsgInput').value=CONFIG_DATA.window_expired_msg||'';
-    // Keyword configs for modal access
     KEYWORD_CONFIGS=CONFIG_DATA.keyword_configs||{};
   }catch(e){}
 }
@@ -677,8 +761,6 @@ async function saveTimingConfig(){
     toast('Settings saved! (poll interval takes effect on restart)');
   }catch(e){toast('Failed: '+e.message,'err');}
 }
-
-// DM Settings
 async function toggleEnforceWindow(){
   const newVal=!CONFIG_DATA.enforce_24h_window;
   try{
@@ -709,7 +791,7 @@ async function saveDmSettings(){
 }
 
 // Initial loads
-loadKW();
+loadAutomation();
 loadConfig();
 </script>
 </body>
