@@ -80,8 +80,7 @@ async function refreshToken() {
     console.error('Token refresh failed:', e.message);
   }
 }
-// Refresh token immediately on start, then every 25 days
-refreshToken();
+// Refresh token every 25 days (long-lived tokens last 60 days)
 setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
 
 async function processComments(mediaId) {
@@ -248,6 +247,10 @@ server.on('error', (err) => { console.error('Server error:', err.message); });
 server.listen(PORT, () => { console.log(`API server on port ${PORT}`); });
 
 loadStats();
-console.log('Bot started, polling every '+POLL_INTERVAL+'s');
-run().catch(e => {});
-setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
+// Wait for initial token refresh before starting polls
+(async () => {
+  await refreshToken();
+  console.log('Bot started, polling every '+POLL_INTERVAL+'s');
+  await run();
+  setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
+})();
