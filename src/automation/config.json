@@ -34,5 +34,9 @@
     "DEFI": "Hey! Amazing engagement! Here's the RIVR dashboard source: https://uiux-collection.vercel.app/rivr",
     "STUDIO": "Hey! Thank you! Here's the Viktor Oddy full source code: https://uiux-collection.vercel.app/viktor-oddy",
     "WEBSITE": "Hey! Thanks for your interest! Check out the full collection here: https://uiux-collection.vercel.app"
-  }
+  },
+  "enforce_24h_window": false,
+  "dm_keyword_enabled": true,
+  "window_expired_msg": "Thanks for your interest! The 24-hour window has expired. Send me a DM or comment on a new post to continue.",
+  "keyword_configs": {}
 }

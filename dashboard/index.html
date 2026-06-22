@@ -101,6 +101,7 @@
   <button class="nav-item" data-page="keywords"><span class="icon">⚡</span> Keywords</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span> Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span> Users</button>
+  <button class="nav-item" data-page="analytics"><span class="icon">📈</span> Analytics</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span> Settings</button>
   <div class="footer"><div id="sbUptime">--</div><div id="sbPolls">--</div></div>
 </div>
@@ -155,8 +156,23 @@
 
 <!-- USERS -->
 <div class="page" id="page-users">
-  <div class="help"><strong>👥 Users:</strong> Everyone who triggered a keyword. Add tags/labels to organize them.</div>
+  <div class="help"><strong>👥 Users:</strong> Everyone who triggered a keyword. Add tags/labels to organize them. Click username for profile.</div>
   <div id="usersContent"><div class="empty"><div class="icon">👥</div><p>Loading...</p></div></div>
+</div>
+
+<!-- ANALYTICS -->
+<div class="page" id="page-analytics">
+  <div class="help"><strong>📈 Analytics:</strong> Link click tracking and DM performance metrics.</div>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));">
+    <div class="card"><div class="lbl">DMs Sent</div><div class="val bl" id="anaTotalSent">0</div></div>
+    <div class="card"><div class="lbl">Total Clicks</div><div class="val gr" id="anaTotalClicks">0</div></div>
+    <div class="card"><div class="lbl">Unique Clickers</div><div class="val yl" id="anaUniqueClickers">0</div></div>
+    <div class="card"><div class="lbl">Click Rate</div><div class="val" id="anaClickRate">0.0%</div></div>
+  </div>
+  <div class="section-label">Clicks by Keyword</div>
+  <div id="anaClicksByKw"><div class="empty"><p>Loading...</p></div></div>
+  <div class="section-label" style="margin-top:14px;">Recent Clicks</div>
+  <div id="anaRecentClicks"><div class="empty"><p>No clicks yet.</p></div></div>
 </div>
 
 <!-- SETTINGS -->
@@ -207,6 +223,31 @@
     <button class="btn btn-s btn-p" onclick="saveTimingConfig()">Save Settings</button>
   </div>
 
+  <div class="section-label">DM & Messaging</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div class="r" style="margin-bottom:6px;">
+      <span class="lbl">Enforce 24-hour window</span>
+      <button class="btn btn-s" id="enforceWindowToggle" onclick="toggleEnforceWindow()" style="min-width:60px;">Loading...</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
+      When ON: users can only receive DMs within 24h of their last interaction. Past that, they get a public notice.
+    </div>
+    <div class="r" style="margin-bottom:6px;">
+      <span class="lbl">Inbound DM keyword trigger</span>
+      <button class="btn btn-s" id="dmKeywordToggle" onclick="toggleDmKeyword()" style="min-width:60px;">Loading...</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+      When ON: bot also replies to keywords sent via DM (not just public comments).
+    </div>
+    <div class="f" style="margin-top:4px;">
+      <label>24h window expired message</label>
+      <textarea id="windowExpiredMsgInput" rows="2" style="font-size:11px;" placeholder="Message users see when 24h window has expired..."></textarea>
+    </div>
+    <div class="flex gap-2" style="margin-top:6px;">
+      <button class="btn btn-s btn-p" onclick="saveDmSettings()">Save DM Settings</button>
+    </div>
+  </div>
+
   <div class="section-label">Bot Status</div>
   <div class="box">
     <div class="r"><span class="lbl">Status</span><span class="val" id="sStatus"><span class="chip chip-warn">Checking...</span></span></div>
@@ -230,16 +271,29 @@
   <button class="nav-item" data-page="keywords"><span class="icon">⚡</span>Triggers</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span>Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span>Users</button>
+  <button class="nav-item" data-page="analytics"><span class="icon">📈</span>Analytics</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Set</button>
 </div>
 
-<!-- Modal -->
+<!-- Keyword Modal -->
 <div class="modal-overlay" id="kwModal">
   <div class="modal">
     <h3 id="modalTitle">Add Keyword</h3>
     <div class="f"><label>Keyword (what users comment)</label><input id="kwKey" placeholder="e.g. PORTFOLIO" maxlength="30" style="text-transform:uppercase;" autocomplete="off"></div>
     <div class="f"><label>DM Response (what bot sends privately)</label><textarea id="kwVal" rows="3" placeholder="Hey! Here's the link: https://..."></textarea></div>
+    <div class="f"><label>Media URL (optional — image to attach to DM)</label><input id="kwMediaUrl" placeholder="https://...image.jpg" autocomplete="off"></div>
     <div class="actions"><button class="btn btn-g" onclick="closeKwModal()">Cancel</button><button class="btn btn-p" onclick="saveKw()">Save</button></div>
+  </div>
+</div>
+
+<!-- Contact Profile Modal -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <h3 id="profileTitle" style="margin-bottom:0;">Profile</h3>
+      <button class="btn btn-s btn-g" onclick="closeProfileModal()">Close</button>
+    </div>
+    <div id="profileContent"><div class="empty"><p>Loading...</p></div></div>
   </div>
 </div>
 
@@ -249,6 +303,7 @@
 const API_BASE = 'https://uiux-production-2f71.up.railway.app';
 let KW = {};
 let editKwKey = null;
+let KEYWORD_CONFIGS = {};
 
 function toast(m,t){const e=document.createElement('div');e.className='toast '+(t||'ok');e.textContent=m;document.getElementById('toastCont').appendChild(e);setTimeout(()=>e.remove(),3000);}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -261,6 +316,8 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   if(el.dataset.page==='keywords'){loadKW();loadPostAssignments();}
   if(el.dataset.page==='inbox') loadInbox();
   if(el.dataset.page==='users') loadUsers();
+  if(el.dataset.page==='analytics') loadAnalytics();
+  if(el.dataset.page==='settings') loadConfig();
 })});
 
 async function api(path, opts){
@@ -319,18 +376,42 @@ function renderKW(){
   h+='</table>'; div.innerHTML=h;
 }
 async function loadKW(){try{const d=await api('/api/keywords');KW=d.keywords||{};renderKW();}catch(e){document.getElementById('kwList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}}
-function openKwModal(k){editKwKey=k||null;document.getElementById('modalTitle').textContent=k?'Edit Keyword':'Add Keyword';document.getElementById('kwKey').value=k||'';document.getElementById('kwKey').disabled=!!k;document.getElementById('kwVal').value=k?KW[k]||'':'';document.getElementById('kwModal').classList.add('open');}
+function openKwModal(k){
+  editKwKey=k||null;
+  document.getElementById('modalTitle').textContent=k?'Edit Keyword':'Add Keyword';
+  document.getElementById('kwKey').value=k||'';
+  document.getElementById('kwKey').disabled=!!k;
+  document.getElementById('kwVal').value=k?KW[k]||'':'';
+  document.getElementById('kwMediaUrl').value=k?(KEYWORD_CONFIGS[k]?.media_url||''):'';
+  document.getElementById('kwModal').classList.add('open');
+}
 function closeKwModal(){document.getElementById('kwModal').classList.remove('open');}
 function editKw(k){openKwModal(k);}
 function saveKw(){
   const key=document.getElementById('kwKey').value.trim().toUpperCase();
   const val=document.getElementById('kwVal').value.trim();
+  const mediaUrl=document.getElementById('kwMediaUrl').value.trim();
   if(!key||!val){toast('Fill both fields','err');return;}
-  KW[key]=val; closeKwModal(); renderKW(); saveKeywords();
+  KW[key]=val;
+  if(mediaUrl){
+    KEYWORD_CONFIGS[key]=KEYWORD_CONFIGS[key]||{};
+    KEYWORD_CONFIGS[key].media_url=mediaUrl;
+  }else if(KEYWORD_CONFIGS[key]){
+    delete KEYWORD_CONFIGS[key].media_url;
+    if(!Object.keys(KEYWORD_CONFIGS[key]).length) delete KEYWORD_CONFIGS[key];
+  }
+  closeKwModal(); renderKW(); saveKeywords();
 }
-function delKw(k){if(!confirm('Delete "'+k+'"?'))return;delete KW[k];renderKW();saveKeywords();}
+function delKw(k){if(!confirm('Delete "'+k+'"?'))return;delete KW[k];delete KEYWORD_CONFIGS[k];renderKW();saveKeywords();}
 async function saveKeywords(){
-  try{document.getElementById('kwSaveBtn').textContent='Saving...';await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Keywords saved!');}catch(e){document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Failed: '+e.message,'err');}
+  try{
+    document.getElementById('kwSaveBtn').textContent='Saving...';
+    await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});
+    if(Object.keys(KEYWORD_CONFIGS).length){
+      await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword_configs:KEYWORD_CONFIGS})});
+    }
+    document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Keywords saved!');
+  }catch(e){document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Failed: '+e.message,'err');}
 }
 
 // ─── POST-KEYWORD ASSIGNMENTS ───
@@ -366,7 +447,6 @@ function togglePostKw(postId,keyword){
   const idx=POST_ASSIGNMENTS[postId].indexOf(keyword);
   if(idx>-1) POST_ASSIGNMENTS[postId].splice(idx,1);
   else POST_ASSIGNMENTS[postId].push(keyword);
-  // If all keywords assigned (empty means all), set to empty
   const allKeys=Object.keys(KW);
   if(POST_ASSIGNMENTS[postId].length===allKeys.length) POST_ASSIGNMENTS[postId]=[];
   savePostAssignments();
@@ -385,11 +465,15 @@ async function loadInbox(){
     for(const item of d.items.slice().reverse()){
       const t=item.ts?new Date(item.ts).toLocaleString():'--';
       const skipped=item.skipped;
+      let typeBadge='';
+      if(item.type==='inbound_dm') typeBadge='<span class="chip chip-done">📩 DM</span>';
+      else if(item.type==='test') typeBadge='<span class="chip chip-warn">🧪 Test</span>';
       h+='<div class="inbox-item" style="'+(skipped?'opacity:0.5;':'')+'">'
         +'<div class="head"><span class="user">@'+(item.username||'unknown')+'</span><span class="time">'+t+'</span></div>'
-        +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span></div>'
+        +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span> '+typeBadge+'</div>'
         +'<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Post: <span class="code">'+(item.mediaId||'?')+'</span></div>'
         +'<div class="status">'
+        +(item.windowBlocked?'<span class="chip chip-warn">⏰ 24h Expired</span>':'')
         +(skipped?'<span class="chip chip-warn">⏭ Skipped</span>'
           :item.followGate?'<span class="chip chip-warn">🚫 Follow Gate</span>'
           :'<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'✅':'❌')+'</span>'
@@ -407,7 +491,6 @@ async function loadUsers(){
   try{
     const d=await api('/api/users');
     USERS=d.users||[];
-    // Build tags map
     USER_TAGS={};
     for(const u of USERS) if(u.tag) USER_TAGS[u.username]=u.tag;
     renderUsers();
@@ -416,11 +499,11 @@ async function loadUsers(){
 function renderUsers(){
   const div=document.getElementById('usersContent');
   if(!USERS.length){div.innerHTML='<div class="empty"><div class="icon">👥</div><p>No users yet. When people comment keywords, they appear here.</p></div>';return;}
-  let h='<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">'+USERS.length+' total users</div>';
+  let h='<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">'+USERS.length+' total users &mdash; click username for profile</div>';
   for(const u of USERS){
     const tag=USER_TAGS[u.username]||'';
     h+='<div class="user-row">'
-      +'<span class="name">@'+esc(u.username)+'</span>'
+      +'<span class="name" style="cursor:pointer;" onclick="openContactProfile(\''+esc(u.username)+'\')">@'+esc(u.username)+'</span>'
       +'<span class="count">'+u.count+' triggers</span>'
       +'<input class="tag-input" placeholder="Add tag..." value="'+esc(tag)+'" data-user="'+esc(u.username)+'" onchange="updateUserTag(this)">'
       +'<button class="btn btn-s btn-g" onclick="applyTag(\''+esc(u.username)+'\',this)">Save</button>'
@@ -433,6 +516,82 @@ function updateUserTag(el){USER_TAGS[el.dataset.user]=el.value;}
 function applyTag(name,btn){btn.textContent='Saving...';saveUserTags();}
 async function saveUserTags(){
   try{await api('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags:USER_TAGS})});toast('User tags saved!');}catch(e){toast('Failed: '+e.message,'err');}
+}
+
+// ─── CONTACT PROFILE ───
+async function openContactProfile(username){
+  document.getElementById('profileModal').classList.add('open');
+  document.getElementById('profileTitle').textContent='@'+username;
+  document.getElementById('profileContent').innerHTML='<div class="empty"><p>Loading...</p></div>';
+  try{
+    const d=await api('/api/user/'+encodeURIComponent(username));
+    let h='<div class="grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px;">'
+      +'<div class="card"><div class="lbl">Triggers</div><div class="val bl">'+d.totalTriggers+'</div></div>'
+      +'<div class="card"><div class="lbl">DMs OK</div><div class="val gr">'+d.dmsOk+'</div></div>'
+      +'<div class="card"><div class="lbl">Failed</div><div class="val rd">'+d.dmsFailed+'</div></div>'
+      +'</div>';
+    if(d.isFollower!==null) h+='<div style="font-size:12px;margin-bottom:6px;">Follower: '+(d.isFollower?'<span class="chip chip-done">✅ Yes</span>':'<span class="chip chip-fail">❌ No</span>')+'</div>';
+    h+='<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Keywords used: '+(d.keywordsUsed||[]).map(k=>'<span class="kw">'+esc(k)+'</span>').join(' ')+'</div>';
+    h+='<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Tag: '+(d.tag||'<em>none</em>')+'</div>';
+    h+='<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Last interaction: '+(d.lastInteractionStr||'Never')+'</div>';
+    h+='<div class="section-label">History</div>';
+    for(const item of (d.history||[])){
+      const timeStr=item.timeStr||'--';
+      h+='<div class="inbox-item" style="padding:8px 10px;">'
+        +'<div class="head"><span class="kw">'+esc(item.keyword||'')+'</span><span class="time">'+timeStr+'</span></div>'
+        +'<div style="font-size:11px;color:#bbb;">'+esc(item.text||'')+'</div>'
+        +'<div class="status">'
+        +(item.type==='inbound_dm'?'<span class="chip chip-done">📩 DM</span>':'')
+        +(item.dmOk?'<span class="chip chip-done">DM ✅</span>':'')
+        +(item.fallback?'<span class="chip chip-warn">Fallback</span>':'')
+        +(item.windowBlocked?'<span class="chip chip-warn">⏰ 24h</span>':'')
+        +(item.followGate?'<span class="chip chip-warn">🚫 Follow Gate</span>':'')
+        +(item.skipped?'<span class="chip chip-warn">⏭ Skipped</span>':'')
+        +'</div></div>';
+    }
+    document.getElementById('profileContent').innerHTML=h;
+  }catch(e){
+    document.getElementById('profileContent').innerHTML='<div class="empty"><p>Error: '+esc(e.message)+'</p></div>';
+  }
+}
+function closeProfileModal(){document.getElementById('profileModal').classList.remove('open');}
+
+// ─── ANALYTICS ───
+async function loadAnalytics(){
+  try{
+    const d=await api('/api/analytics');
+    document.getElementById('anaTotalSent').textContent=d.totalSent||0;
+    document.getElementById('anaTotalClicks').textContent=d.totalClicks||0;
+    document.getElementById('anaUniqueClickers').textContent=d.uniqueClickers||0;
+    document.getElementById('anaClickRate').textContent=(d.clickRate||'0.0')+'%';
+
+    const keys=Object.keys(d.clicksByKeyword||{});
+    let kh='';
+    if(!keys.length){
+      kh='<div class="empty"><p>No clicks recorded yet.</p></div>';
+    }else{
+      kh='<table><tr><th>Keyword</th><th>Clicks</th></tr>';
+      for(const k of keys.sort((a,b)=>d.clicksByKeyword[b]-d.clicksByKeyword[a]))
+        kh+='<tr><td><span class="kw">'+esc(k)+'</span></td><td>'+d.clicksByKeyword[k]+'</td></tr>';
+      kh+='</table>';
+    }
+    document.getElementById('anaClicksByKw').innerHTML=kh;
+
+    const clicks=d.recentClicks||[];
+    let ch='';
+    if(!clicks.length){
+      ch='<div class="empty"><p>No recent clicks.</p></div>';
+    }else{
+      ch='<table><tr><th>User</th><th>Keyword</th><th>Time</th></tr>';
+      for(const c of clicks)
+        ch+='<tr><td>@'+esc(c.username||'')+'</td><td><span class="kw">'+esc(c.keyword||'')+'</span></td><td style="font-size:10px;color:var(--muted);">'+esc(c.timeStr||'')+'</td></tr>';
+      ch+='</table>';
+    }
+    document.getElementById('anaRecentClicks').innerHTML=ch;
+  }catch(e){
+    document.getElementById('anaClicksByKw').innerHTML='<div class="empty"><p>Error: '+esc(e.message)+'</p></div>';
+    document.getElementById('anaRecentClicks').innerHTML='';
+  }
 }
 
 // ─── SETTINGS ───
@@ -451,6 +610,14 @@ async function loadConfig(){
     document.getElementById('sFollowerRefresh').textContent=CONFIG_DATA.followers_last_refreshed||'--';
     document.getElementById('sFollowGateStatus').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
     document.getElementById('sDmQueue').textContent=CONFIG_DATA.dm_queue_length||0;
+    // DM settings
+    document.getElementById('enforceWindowToggle').textContent=CONFIG_DATA.enforce_24h_window?'ON ✅':'OFF';
+    document.getElementById('enforceWindowToggle').className='btn btn-s '+(CONFIG_DATA.enforce_24h_window?'btn-p':'btn-g');
+    document.getElementById('dmKeywordToggle').textContent=CONFIG_DATA.dm_keyword_enabled?'ON ✅':'OFF';
+    document.getElementById('dmKeywordToggle').className='btn btn-s '+(CONFIG_DATA.dm_keyword_enabled?'btn-p':'btn-g');
+    document.getElementById('windowExpiredMsgInput').value=CONFIG_DATA.window_expired_msg||'';
+    // Keyword configs for modal access
+    KEYWORD_CONFIGS=CONFIG_DATA.keyword_configs||{};
   }catch(e){}
 }
 async function refreshSet(){
@@ -508,6 +675,36 @@ async function saveTimingConfig(){
     await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({poll_interval_seconds:poll,rate_limit_per_hour:rate,ig_username:user})});
     CONFIG_DATA.poll_interval_seconds=poll; CONFIG_DATA.rate_limit_per_hour=rate; CONFIG_DATA.ig_username=user;
     toast('Settings saved! (poll interval takes effect on restart)');
+  }catch(e){toast('Failed: '+e.message,'err');}
+}
+
+// DM Settings
+async function toggleEnforceWindow(){
+  const newVal=!CONFIG_DATA.enforce_24h_window;
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enforce_24h_window:newVal})});
+    CONFIG_DATA.enforce_24h_window=newVal;
+    document.getElementById('enforceWindowToggle').textContent=newVal?'ON ✅':'OFF';
+    document.getElementById('enforceWindowToggle').className='btn btn-s '+(newVal?'btn-p':'btn-g');
+    toast('24h window '+(newVal?'enabled':'disabled'));
+  }catch(e){toast('Failed: '+e.message,'err');}
+}
+async function toggleDmKeyword(){
+  const newVal=!CONFIG_DATA.dm_keyword_enabled;
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dm_keyword_enabled:newVal})});
+    CONFIG_DATA.dm_keyword_enabled=newVal;
+    document.getElementById('dmKeywordToggle').textContent=newVal?'ON ✅':'OFF';
+    document.getElementById('dmKeywordToggle').className='btn btn-s '+(newVal?'btn-p':'btn-g');
+    toast('DM keyword trigger '+(newVal?'enabled':'disabled'));
+  }catch(e){toast('Failed: '+e.message,'err');}
+}
+async function saveDmSettings(){
+  const msg=document.getElementById('windowExpiredMsgInput').value.trim();
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({window_expired_msg:msg,enforce_24h_window:CONFIG_DATA.enforce_24h_window,dm_keyword_enabled:CONFIG_DATA.dm_keyword_enabled})});
+    CONFIG_DATA.window_expired_msg=msg;
+    toast('DM settings saved!');
   }catch(e){toast('Failed: '+e.message,'err');}
 }
 
