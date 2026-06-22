@@ -206,7 +206,6 @@ const BOT_START_TIME = Date.now();
 async function refreshToken() {
   if (!APP_ID || !APP_SECRET || !TOKEN) return;
   try {
-    console.log('Refreshing token...');
     const url = `https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${TOKEN}`;
     const data = await new Promise((resolve,reject) => {
       https.get(url, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){reject(e)} }); }).on('error', reject);
@@ -214,12 +213,9 @@ async function refreshToken() {
     if (data.access_token && data.access_token !== TOKEN) {
       CONFIG.access_token = data.access_token; TOKEN = data.access_token;
       try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.access_token = data.access_token; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
-      console.log('Token refreshed! Expiry: '+(data.expires_in ? Math.floor(data.expires_in/86400)+' days' : 'unknown'));
     } else if (data.error) console.error('Token refresh error:', data.error.message);
   } catch(e) { console.error('Token refresh failed:', e.message); }
 }
-setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
-
 // ─── Process Comment Triggers ───
 async function processComments(mediaId) {
   try {
@@ -593,8 +589,8 @@ loadStats();
 loadFollowersCache();
 loadProcessedDMs();
 (async () => {
-  await refreshToken();
-  console.log('Bot started, poll='+POLL_INTERVAL+'s'+(FOLLOW_GATE_ENABLED?' follow_gate=ON':'')+(ENFORCE_24H_WINDOW?' 24h_window=ON':'')+(DM_KEYWORD_ENABLED?' dm_keywords=ON':''));
-  await run();
+  if (!TOKEN) await refreshToken();
+  setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
   setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
+  await run();
 })();
