@@ -12,6 +12,7 @@ const configPath = path.join(__dirname, 'config.json');
 try { if (fs.existsSync(configPath)) CONFIG = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch(e) {}
 
 let TOKEN = CONFIG.access_token || process.env.ACCESS_TOKEN || '';
+let IG_TOKEN = CONFIG.ig_token || process.env.IG_TOKEN || '';
 const IG_ID = process.env.IG_USER_ID || CONFIG.ig_user_id || '';
 const APP_ID = process.env.APP_ID || CONFIG.app_id || '';
 const APP_SECRET = process.env.APP_SECRET || CONFIG.app_secret || '';
@@ -55,6 +56,25 @@ function apiRequest(endpoint, method='GET', body=null) {
       const req = https.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){resolve(d)}}); });
       req.on('error', reject);
       req.setTimeout(15000, () => { req.destroy(); reject(new Error('API timeout')); });
+      if (body) req.write(JSON.stringify(body));
+      req.end();
+    } catch(e) { reject(e); }
+  });
+}
+
+// ─── Instagram API Request (for DM sending) ───
+function igApiRequest(endpoint, method='POST', body=null) {
+  return new Promise((resolve,reject)=>{
+    try {
+      const opts = {
+        hostname: 'graph.instagram.com',
+        path: endpoint,
+        method,
+        headers: { 'Authorization': `Bearer ${IG_TOKEN}`, 'Content-Type': 'application/json' }
+      };
+      const req = https.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){resolve(d)}}); });
+      req.on('error', reject);
+      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Instagram API timeout')); });
       if (body) req.write(JSON.stringify(body));
       req.end();
     } catch(e) { reject(e); }
@@ -149,8 +169,16 @@ function loadProcessed() { try { return JSON.parse(fs.readFileSync(PROCESSED_FIL
 function saveProcessed(entry) { const list = loadProcessed(); list.push(entry); try { fs.writeFileSync(PROCESSED_FILE, JSON.stringify(list.slice(-1000))); } catch(e) {} }
 function extractKeyword(text) { const u=text.toUpperCase(); for (const k of Object.keys(KEYWORDS)) { if (u.includes(k)) return k; } return null; }
 
-// ─── DM Sending (with media support) ───
+// ─── DM Sending (Instagram API first, fallback to Facebook) ───
 async function sendDM(recipientId, msg, mediaUrl) {
+  if (IG_TOKEN) {
+    try {
+      const body = { recipient: { id: recipientId }, message: { text: msg } };
+      const result = await igApiRequest('/v25.0/me/messages', 'POST', body);
+      if (result && !result.error) return result;
+      console.error('Instagram DM failed:', result?.error);
+    } catch(e) { console.error('Instagram API error:', e.message); }
+  }
   try {
     const body = { recipient: { id: recipientId } };
     if (mediaUrl) {
@@ -392,6 +420,7 @@ const server = http.createServer((req, res) => {
         if (data.dm_keyword_enabled !== undefined) { DM_KEYWORD_ENABLED = data.dm_keyword_enabled === true; persist.dm_keyword_enabled = DM_KEYWORD_ENABLED; }
         if (data.window_expired_msg !== undefined) { persist.window_expired_msg = data.window_expired_msg; }
         if (data.access_token !== undefined) { TOKEN = data.access_token; CONFIG.access_token = data.access_token; persist.access_token = data.access_token; }
+        if (data.ig_token !== undefined) { IG_TOKEN = data.ig_token; CONFIG.ig_token = data.ig_token; persist.ig_token = data.ig_token; }
         try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); Object.assign(c, persist); fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
         json({ ok: true });
       });
