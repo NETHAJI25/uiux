@@ -200,11 +200,15 @@ async function processComments(mediaId) {
     for (const c of comments.data) {
       if (processed.some(p => p.id === c.id)) continue;
       stats.totalCommentsFound++;
-      const postKwList = POST_KEYWORDS[mediaId];
-      if (!postKwList || !postKwList.length) continue;
       const uText = c.text.toUpperCase();
-      const keyword = postKwList.find(k => uText.includes(k));
+      const postKwList = POST_KEYWORDS[mediaId];
+      let keyword = null;
+      if (postKwList && postKwList.length) {
+        keyword = postKwList.find(k => uText.includes(k));
+      }
+      if (!keyword) keyword = extractKeyword(c.text);
       if (!keyword) continue;
+      console.log(`Matched: @${c.from?.username||'?'} "${c.text}" → ${keyword}`);
       stats.totalCommentsProcessed++;
       stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
       const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
@@ -245,10 +249,11 @@ async function processComments(mediaId) {
         const kwCfg = CONFIG.keyword_configs?.[keyword] || {};
         const dmResult = await sendDM(c.from.id, trackedMsg, kwCfg.media_url || null);
         if (dmResult && dmResult.error) {
+          console.error(`DM failed for @${c.from?.username||'?'}:`, dmResult.error);
           stats.totalErrors++; stats.lastError=`DM: ${JSON.stringify(dmResult.error)}`;
           await replyToComment(c.id, dmMsg); fb=true;
           stats.totalFallbackReplies++;
-        } else { stats.totalDMsent++; dmOk=true; trackDMsent(); touchInteraction(c.from.id); }
+        } else { stats.totalDMsent++; dmOk=true; trackDMsent(); touchInteraction(c.from.id); console.log(`DM sent to @${c.from?.username||'?'}`); }
       } else { dmQueue.push({ recipientId: c.from.id, msg: dmMsg, commentId: c.id, keyword, mediaId, username: c.from?.username||'?', text: c.text }); }
 
       saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, keyword, mediaId, type:'comment', replyOk, dmOk, fallback:fb, skipped:false, ts:Date.now() });
@@ -312,7 +317,7 @@ async function processDMQueue() {
 async function run() {
   try {
     stats.totalPolls++; stats.lastPollTime = Date.now();
-    if (!TOKEN || !IG_ID) { stats.lastError='Missing TOKEN or IG_ID'; saveStats(); return; }
+    if (!TOKEN || !IG_ID) { stats.lastError='Missing TOKEN or IG_ID'; console.error('Missing TOKEN or IG_ID'); saveStats(); return; }
     const media = await apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,comments_count&limit=5`);
     if (!media || media.error) { stats.totalErrors++; stats.lastError=`API: ${media?.error?.message||JSON.stringify(media?.error||'No response')}`; saveStats(); return; }
     if (media.data) { for (const p of media.data) { if ((p.comments_count||0)>0) await processComments(p.id); } }
@@ -564,6 +569,9 @@ loadFollowersCache();
 loadProcessedDMs();
 (async () => {
   if (!TOKEN) await refreshToken();
+  const kwCount = Object.keys(KEYWORDS).length;
+  const postKwCount = Object.keys(POST_KEYWORDS).filter(k => POST_KEYWORDS[k]?.length).length;
+  console.log(`Bot ready: ${kwCount} keywords, ${postKwCount} posts with keyword mappings, IG_ID=${IG_ID ? 'set' : 'MISSING'}, TOKEN=${TOKEN ? 'set' : 'MISSING'}`);
   setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
   setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
   await run();
