@@ -10,8 +10,10 @@ let CONFIG = {};
 const configPath = path.join(__dirname, 'config.json');
 try { if (fs.existsSync(configPath)) CONFIG = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch(e) {}
 
-const TOKEN = process.env.ACCESS_TOKEN || CONFIG.access_token || '';
+let TOKEN = process.env.ACCESS_TOKEN || CONFIG.access_token || '';
 const IG_ID = process.env.IG_USER_ID || CONFIG.ig_user_id || '';
+const APP_ID = process.env.APP_ID || CONFIG.app_id || '';
+const APP_SECRET = process.env.APP_SECRET || CONFIG.app_secret || '';
 const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_interval_seconds || '30', 10);
 
 let KEYWORDS = {};
@@ -54,6 +56,33 @@ async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/repli
 async function sendDM(recipientId, msg) { try { return await apiRequest(`/${IG_ID}/messages?access_token=${TOKEN}`, 'POST', { recipient: { id: recipientId }, message: { text: msg } }); } catch(e) { return { error: e.message }; } }
 
 const BOT_START_TIME = Date.now();
+
+// Token auto-refresh every 25 days (long-lived tokens last 60 days)
+async function refreshToken() {
+  if (!APP_ID || !APP_SECRET || !TOKEN) { console.log('Token refresh: missing credentials'); return; }
+  try {
+    console.log('Refreshing Facebook token...');
+    const url = `https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${TOKEN}`;
+    const data = await new Promise((resolve,reject) => {
+      https.get(url, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){reject(e)} }); }).on('error', reject);
+    });
+    if (data.access_token && data.access_token !== TOKEN) {
+      // Update in-memory
+      CONFIG.access_token = data.access_token;
+      TOKEN = data.access_token;
+      // Persist to config file
+      try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.access_token = data.access_token; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
+      console.log('Token refreshed successfully! New expiry: '+(data.expires_in ? Math.floor(data.expires_in/86400)+' days' : 'unknown'));
+    } else if (data.error) {
+      console.error('Token refresh error:', data.error.message);
+    }
+  } catch(e) {
+    console.error('Token refresh failed:', e.message);
+  }
+}
+// Refresh token immediately on start, then every 25 days
+refreshToken();
+setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
 
 async function processComments(mediaId) {
   try {

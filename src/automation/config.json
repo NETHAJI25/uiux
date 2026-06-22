@@ -2,6 +2,8 @@
   "access_token": "EAAOsgPpYClgBRZBYEdnzewAd9DXJtoagKizSop1kOFRZBJfW2PTZBJeUZAz2fPrloivgyslPkUjAbi8uxKIckJwbwa2UlFJT6yym9xQ8RlkvHXQi2RvpP7cpZACaZCTBw1Tz6tCR3tdrJmOnf7fdHapGsGM3MeMnmOyWRRDKDT8RlvUmTs94CnwBSPYUxSZCABeZAkokoQgJ86ZC9CF7bnUsnMVjsCbXQZA6aZC2LXpuYJp7Ki3EZBdZBM6xhpDzNpGTtcZBPkmhf7RAH0NKkvy2p3ZA10Ti8shywZDZD",
   "ig_user_id": "17841436537356180",
   "poll_interval_seconds": 30,
+  "app_id": "1034094885997144",
+  "app_secret": "5a39e6608092bb99950c83d1d14a769b",
   "reply_template": "Check your DM ✅ Thanks for commenting!",
   "post_keywords": {},
   "keywords": {
