@@ -52,29 +52,11 @@ function apiRequest(endpoint, method='GET', body=null) {
     try {
       const url = new URL(`https://graph.facebook.com${endpoint.startsWith('/')?'':'/'}${endpoint}`);
       if (method==='GET') url.searchParams.append('access_token', TOKEN);
-      const opts = { hostname: 'graph.facebook.com', path: url.pathname+url.search+(method==='GET'?'':`&access_token=${TOKEN}`), method, headers: body?{'Content-Type':'application/json'}:{} };
+      const qs = method==='GET' ? '' : (url.search ? '&' : '?') + `access_token=${TOKEN}`;
+      const opts = { hostname: 'graph.facebook.com', path: url.pathname+url.search+qs, method, headers: body?{'Content-Type':'application/json'}:{} };
       const req = https.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){resolve(d)}}); });
       req.on('error', reject);
       req.setTimeout(15000, () => { req.destroy(); reject(new Error('API timeout')); });
-      if (body) req.write(JSON.stringify(body));
-      req.end();
-    } catch(e) { reject(e); }
-  });
-}
-
-// ─── Instagram API Request (for DM sending) ───
-function igApiRequest(endpoint, method='POST', body=null) {
-  return new Promise((resolve,reject)=>{
-    try {
-      const opts = {
-        hostname: 'graph.instagram.com',
-        path: endpoint,
-        method,
-        headers: { 'Authorization': `Bearer ${IG_TOKEN}`, 'Content-Type': 'application/json' }
-      };
-      const req = https.request(opts, res => { let d=''; res.on('data',c=>d+=c); res.on('end',()=>{ try{resolve(JSON.parse(d))}catch(e){resolve(d)}}); });
-      req.on('error', reject);
-      req.setTimeout(15000, () => { req.destroy(); reject(new Error('Instagram API timeout')); });
       if (body) req.write(JSON.stringify(body));
       req.end();
     } catch(e) { reject(e); }
@@ -169,16 +151,8 @@ function loadProcessed() { try { return JSON.parse(fs.readFileSync(PROCESSED_FIL
 function saveProcessed(entry) { const list = loadProcessed(); list.push(entry); try { fs.writeFileSync(PROCESSED_FILE, JSON.stringify(list.slice(-1000))); } catch(e) {} }
 function extractKeyword(text) { const u=text.toUpperCase(); for (const k of Object.keys(KEYWORDS)) { if (u.includes(k)) return k; } return null; }
 
-// ─── DM Sending (Instagram API first, fallback to Facebook) ───
+// ─── DM Sending ───
 async function sendDM(recipientId, msg, mediaUrl) {
-  if (IG_TOKEN) {
-    try {
-      const body = { recipient: { id: recipientId }, message: { text: msg } };
-      const result = await igApiRequest('/v25.0/me/messages', 'POST', body);
-      if (result && !result.error) return result;
-      console.error('Instagram DM failed:', result?.error);
-    } catch(e) { console.error('Instagram API error:', e.message); }
-  }
   try {
     const body = { recipient: { id: recipientId } };
     if (mediaUrl) {
@@ -186,19 +160,19 @@ async function sendDM(recipientId, msg, mediaUrl) {
     } else {
       body.message = { text: msg };
     }
-    return await apiRequest(`/${IG_ID}/messages?access_token=${TOKEN}`, 'POST', body);
+    return await apiRequest(`/${IG_ID}/messages`, 'POST', body);
   } catch(e) { return { error: e.message }; }
 }
 async function sendPostShare(recipientId, postMediaId) {
   try {
-    return await apiRequest(`/${IG_ID}/messages?access_token=${TOKEN}`, 'POST', {
+    return await apiRequest(`/${IG_ID}/messages`, 'POST', {
       recipient: { id: recipientId },
       message: { attachment: { type: 'MEDIA_SHARE', payload: { id: postMediaId } } }
     });
   } catch(e) { return { error: e.message }; }
 }
 
-async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/replies?message=${encodeURIComponent(msg)}&access_token=${TOKEN}`, 'POST'); }
+async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/replies?message=${encodeURIComponent(msg)}`, 'POST'); }
 
 const BOT_START_TIME = Date.now();
 
