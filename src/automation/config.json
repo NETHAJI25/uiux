@@ -4,6 +4,10 @@
   "poll_interval_seconds": 30,
   "app_id": "1034094885997144",
   "app_secret": "5a39e6608092bb99950c83d1d14a769b",
+  "ig_username": "",
+  "follow_gate_enabled": false,
+  "follow_prompt": "Follow @{ig_username} and comment {keyword} again to get the link! 🔗",
+  "rate_limit_per_hour": 150,
   "reply_template": "Check your DM ✅ Thanks for commenting!",
   "post_keywords": {},
   "keywords": {

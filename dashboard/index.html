@@ -120,6 +120,8 @@
     <div class="card"><div class="lbl">DMs Sent</div><div class="val gr" id="totalDMsent">0</div></div>
     <div class="card"><div class="lbl">Fallbacks</div><div class="val yl" id="totalFallbackReplies">0</div></div>
     <div class="card"><div class="lbl">Errors</div><div class="val rd" id="totalErrors">0</div></div>
+    <div class="card"><div class="lbl">Gate Blocked</div><div class="val yl" id="totalFollowGateBlocked">0</div></div>
+    <div class="card"><div class="lbl">DM Queue</div><div class="val yl" id="dmQueueLength">0</div></div>
   </div>
   <div class="section-label">⚡ Keyword Performance</div>
   <div id="kwPerf"><div class="empty"><div class="icon">📊</div><p>No data yet.</p></div></div>
@@ -139,6 +141,10 @@
     <button class="btn btn-g" onclick="saveKeywords()" id="kwSaveBtn" style="display:none;">Save Changes</button>
   </div>
   <div id="kwList"><div class="empty"><div class="icon">⚡</div><p>Loading...</p></div></div>
+
+  <div class="section-label" style="margin-top:18px;">📌 Post-Specific Keywords</div>
+  <div class="help"><strong>Assign keywords to specific posts.</strong> Leave empty to allow all keywords on all posts.</div>
+  <div id="postKwList"><div class="empty"><div class="icon">📌</div><p>Loading posts...</p></div></div>
 </div>
 
 <!-- INBOX -->
@@ -160,16 +166,59 @@
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Public reply when someone comments a keyword (use <span class="code">{keyword}</span>)</div>
     <div class="flex"><input id="replyTemplateInput" value="Check your DM ✅ Thanks for commenting!" style="font-size:12px;"><button class="btn btn-p btn-s" onclick="saveReplyTemplate()">Save</button></div>
   </div>
+  <div class="section-label">Follow Gate</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div class="r" style="margin-bottom:6px;">
+      <span class="lbl">Require follow before DM</span>
+      <button class="btn btn-s" id="followGateToggle" onclick="toggleFollowGate()" style="min-width:60px;">Loading...</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
+      When ON: non-followers get a public reply asking them to follow. Only followers get the DM.
+    </div>
+    <div class="f" style="margin-top:4px;">
+      <label>Follow prompt (public reply to non-followers)</label>
+      <input id="followPromptInput" value="Follow @{ig_username} and comment {keyword} again to get the link! 🔗" style="font-size:11px;padding:6px 8px;">
+    </div>
+    <div class="flex gap-2" style="margin-top:6px;">
+      <button class="btn btn-s btn-p" onclick="saveFollowGate()">Save Follow Gate</button>
+      <button class="btn btn-s btn-g" onclick="refreshFollowers()" id="refreshFollowerBtn">Refresh Followers</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+      Followers cached: <span id="sFollowerCount">0</span> | Last refresh: <span id="sFollowerRefresh">--</span>
+    </div>
+  </div>
+
+  <div class="section-label">Rate Limiting & Timing</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:6px;">
+      <div style="flex:1;min-width:100px;">
+        <label style="font-size:11px;color:var(--muted);">Poll interval (seconds)</label>
+        <input id="sPollInterval" type="number" value="30" style="font-size:12px;padding:5px 8px;">
+      </div>
+      <div style="flex:1;min-width:100px;">
+        <label style="font-size:11px;color:var(--muted);">DMs per hour (max)</label>
+        <input id="sRateLimit" type="number" value="150" style="font-size:12px;padding:5px 8px;">
+      </div>
+      <div style="flex:1;min-width:100px;">
+        <label style="font-size:11px;color:var(--muted);">IG Username (for follow prompt)</label>
+        <input id="sIgUsername" value="" placeholder="your_handle" style="font-size:12px;padding:5px 8px;">
+      </div>
+    </div>
+    <button class="btn btn-s btn-p" onclick="saveTimingConfig()">Save Settings</button>
+  </div>
+
   <div class="section-label">Bot Status</div>
   <div class="box">
     <div class="r"><span class="lbl">Status</span><span class="val" id="sStatus"><span class="chip chip-warn">Checking...</span></span></div>
     <div class="r"><span class="lbl">Uptime</span><span class="val" id="sUptime">--</span></div>
     <div class="r"><span class="lbl">Started</span><span class="val" id="sStart">--</span></div>
+    <div class="r"><span class="lbl">DM Queue</span><span class="val" id="sDmQueue">0</span></div>
   </div>
   <div class="section-label">Backend</div>
   <div class="box">
     <div class="r"><span class="lbl">Railway API</span><span class="val" style="font-size:10px;word-break:break-all;" id="sBackend">--</span></div>
     <div class="r"><span class="lbl">Keywords</span><span class="val" id="sKwCount">--</span></div>
+    <div class="r"><span class="lbl">Follow Gate</span><span class="val" id="sFollowGateStatus">OFF</span></div>
   </div>
 </div>
 
@@ -209,7 +258,7 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('page-'+el.dataset.page).classList.add('active');
-  if(el.dataset.page==='keywords') loadKW();
+  if(el.dataset.page==='keywords'){loadKW();loadPostAssignments();}
   if(el.dataset.page==='inbox') loadInbox();
   if(el.dataset.page==='users') loadUsers();
 })});
@@ -234,7 +283,7 @@ async function refreshDash(){
   try{
     const d=await api('/api/stats');
     document.getElementById('dashError').style.display='none';
-    ['totalPolls','totalCommentsFound','totalCommentsProcessed','totalRepliesSent','totalDMsent','totalFallbackReplies','totalErrors'].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=d[k]||0});
+    ['totalPolls','totalCommentsFound','totalCommentsProcessed','totalRepliesSent','totalDMsent','totalFallbackReplies','totalErrors','totalFollowGateBlocked','dmQueueLength'].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=d[k]||0});
     const u=d.uptimeStr||'--'; document.getElementById('tbUptime').textContent=u; document.getElementById('sbUptime').textContent='Uptime: '+u; document.getElementById('sbPolls').textContent='Polls: '+(d.totalPolls||0);
     document.getElementById('lastPoll').textContent=d.lastPollStr||'--'; document.getElementById('lastActivity').textContent=d.lastActivityStr||'--';
     if(d.lastError){document.getElementById('lastErrorR').style.display='flex';document.getElementById('lastError').textContent=d.lastError;}
@@ -284,6 +333,48 @@ async function saveKeywords(){
   try{document.getElementById('kwSaveBtn').textContent='Saving...';await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Keywords saved!');}catch(e){document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Failed: '+e.message,'err');}
 }
 
+// ─── POST-KEYWORD ASSIGNMENTS ───
+let POST_ASSIGNMENTS = {};
+async function loadPostAssignments(){
+  try{
+    const d=await api('/api/posts');
+    POST_ASSIGNMENTS=d.assignments||{};
+    const div=document.getElementById('postKwList');
+    if(!d.posts||!d.posts.length){div.innerHTML='<div class="empty"><div class="icon">📌</div><p>No posts found. Make sure your account has posts.</p></div>';return;}
+    const keys=Object.keys(KW);
+    if(!keys.length){div.innerHTML='<div class="empty"><div class="icon">⚡</div><p>Add keywords first, then assign them to posts.</p></div>';return;}
+    let h='<div style="margin-bottom:6px;font-size:11px;color:var(--muted);">'+d.posts.length+' posts loaded</div>';
+    for(const p of d.posts){
+      const caption=(p.caption||'No caption').substring(0,60);
+      const assigned=POST_ASSIGNMENTS[p.id]||[];
+      h+='<div class="inbox-item" style="padding:8px 10px;">'
+        +'<div class="head"><span style="font-size:11px;color:var(--muted);">'+new Date(p.timestamp).toLocaleDateString()+'</span>'
+        +'<span style="font-size:10px;color:var(--muted);" class="code">'+p.id.substring(0,12)+'</span></div>'
+        +'<div style="font-size:11px;color:#bbb;margin-bottom:4px;">'+esc(caption)+'</div>'
+        +'<div class="flex flex-wrap" style="gap:3px;">';
+      for(const k of keys){
+        const isOn=assigned.includes(k);
+        h+='<button class="chip '+(!assigned.length||isOn?'chip-done':'chip-fail')+'" style="cursor:pointer;font-size:10px;padding:1px 5px;border:none;background:'+(isOn||!assigned.length?'#052e16;color:#86efac':'#450a0a;color:#fca5a5')+'" onclick="togglePostKw(\''+p.id+'\',\''+k+'\')">'+k+'</button>';
+      }
+      h+='</div></div>';
+    }
+    div.innerHTML=h;
+  }catch(e){document.getElementById('postKwList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}
+}
+function togglePostKw(postId,keyword){
+  if(!POST_ASSIGNMENTS[postId]) POST_ASSIGNMENTS[postId]=[];
+  const idx=POST_ASSIGNMENTS[postId].indexOf(keyword);
+  if(idx>-1) POST_ASSIGNMENTS[postId].splice(idx,1);
+  else POST_ASSIGNMENTS[postId].push(keyword);
+  // If all keywords assigned (empty means all), set to empty
+  const allKeys=Object.keys(KW);
+  if(POST_ASSIGNMENTS[postId].length===allKeys.length) POST_ASSIGNMENTS[postId]=[];
+  savePostAssignments();
+}
+async function savePostAssignments(){
+  try{await api('/api/post-keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:POST_ASSIGNMENTS})}); loadPostAssignments();}catch(e){toast('Failed: '+e.message,'err');}
+}
+
 // ─── INBOX ───
 async function loadInbox(){
   try{
@@ -300,6 +391,7 @@ async function loadInbox(){
         +'<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Post: <span class="code">'+(item.mediaId||'?')+'</span></div>'
         +'<div class="status">'
         +(skipped?'<span class="chip chip-warn">⏭ Skipped</span>'
+          :item.followGate?'<span class="chip chip-warn">🚫 Follow Gate</span>'
           :'<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'✅':'❌')+'</span>'
           +'<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'✅':item.fallback?'⚠️ Fallback':'❌')+'</span>')
         +'</div></div>';
@@ -344,6 +436,23 @@ async function saveUserTags(){
 }
 
 // ─── SETTINGS ───
+let CONFIG_DATA = {};
+async function loadConfig(){
+  try{
+    CONFIG_DATA=await api('/api/config');
+    document.getElementById('followGateToggle').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
+    document.getElementById('followGateToggle').className='btn btn-s '+(CONFIG_DATA.follow_gate_enabled?'btn-p':'btn-g');
+    document.getElementById('followPromptInput').value=CONFIG_DATA.follow_prompt||'';
+    document.getElementById('sPollInterval').value=CONFIG_DATA.poll_interval_seconds||30;
+    document.getElementById('sRateLimit').value=CONFIG_DATA.rate_limit_per_hour||150;
+    document.getElementById('sIgUsername').value=CONFIG_DATA.ig_username||'';
+    document.getElementById('replyTemplateInput').value=CONFIG_DATA.reply_template||'';
+    document.getElementById('sFollowerCount').textContent=CONFIG_DATA.followers_count||0;
+    document.getElementById('sFollowerRefresh').textContent=CONFIG_DATA.followers_last_refreshed||'--';
+    document.getElementById('sFollowGateStatus').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
+    document.getElementById('sDmQueue').textContent=CONFIG_DATA.dm_queue_length||0;
+  }catch(e){}
+}
 async function refreshSet(){
   try{
     const d=await api('/api/stats');
@@ -352,17 +461,59 @@ async function refreshSet(){
     document.getElementById('sStart').textContent=d.startTime?new Date(d.startTime).toLocaleString():'--';
     document.getElementById('sBackend').textContent=API_BASE;
     document.getElementById('sKwCount').textContent=Object.keys(KW).length;
+    document.getElementById('sDmQueue').textContent=d.dmQueueLength||0;
   }catch(e){document.getElementById('sStatus').innerHTML='<span class="chip chip-fail">● Offline</span>';}
 }
 setInterval(refreshSet,10000); refreshSet();
 async function saveReplyTemplate(){
   const val=document.getElementById('replyTemplateInput').value.trim();
   if(!val){toast('Enter a template','err');return;}
-  try{await api('/api/reply-template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template:val})});toast('Reply template saved!');}catch(e){toast('Failed: '+e.message,'err');}
+  try{await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply_template:val})});toast('Reply template saved!');CONFIG_DATA.reply_template=val;}catch(e){toast('Failed: '+e.message,'err');}
+}
+async function toggleFollowGate(){
+  const newVal=!CONFIG_DATA.follow_gate_enabled;
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({follow_gate_enabled:newVal})});
+    CONFIG_DATA.follow_gate_enabled=newVal;
+    document.getElementById('followGateToggle').textContent=newVal?'ON ✅':'OFF';
+    document.getElementById('followGateToggle').className='btn btn-s '+(newVal?'btn-p':'btn-g');
+    document.getElementById('sFollowGateStatus').textContent=newVal?'ON ✅':'OFF';
+    toast('Follow gate '+(newVal?'enabled':'disabled'));
+  }catch(e){toast('Failed: '+e.message,'err');}
+}
+async function saveFollowGate(){
+  const prompt=document.getElementById('followPromptInput').value.trim();
+  if(!prompt){toast('Enter a follow prompt','err');return;}
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({follow_prompt:prompt,follow_gate_enabled:CONFIG_DATA.follow_gate_enabled})});
+    CONFIG_DATA.follow_prompt=prompt; toast('Follow gate saved!');
+  }catch(e){toast('Failed: '+e.message,'err');}
+}
+async function refreshFollowers(){
+  const btn=document.getElementById('refreshFollowerBtn'); const orig=btn.textContent;
+  btn.textContent='Refreshing...'; btn.disabled=true;
+  try{
+    const d=await api('/api/refresh-followers',{method:'POST'});
+    toast('Followers refreshed: '+d.count);
+    document.getElementById('sFollowerCount').textContent=d.count||CONFIG_DATA.followers_count;
+    document.getElementById('sFollowerRefresh').textContent='Just now';
+  }catch(e){toast('Failed: '+e.message,'err');}
+  btn.textContent=orig; btn.disabled=false;
+}
+async function saveTimingConfig(){
+  const poll=parseInt(document.getElementById('sPollInterval').value)||30;
+  const rate=parseInt(document.getElementById('sRateLimit').value)||150;
+  const user=document.getElementById('sIgUsername').value.trim();
+  try{
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({poll_interval_seconds:poll,rate_limit_per_hour:rate,ig_username:user})});
+    CONFIG_DATA.poll_interval_seconds=poll; CONFIG_DATA.rate_limit_per_hour=rate; CONFIG_DATA.ig_username=user;
+    toast('Settings saved! (poll interval takes effect on restart)');
+  }catch(e){toast('Failed: '+e.message,'err');}
 }
 
 // Initial loads
 loadKW();
+loadConfig();
 </script>
 </body>
 </html>
