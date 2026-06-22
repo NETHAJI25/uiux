@@ -1,7 +1,7 @@
 {
   "access_token": "EAAOsgPpYClgBR5VQqjHjCi4CLLHQ5l16e0XnovEPHXjYVZA1TuXW7wlsEECxMX4imw4CrC6uzlSbrr1YfCmEbLY4pCsbCkpNpqeBAEidPplpGzNGTThJy7GIwNWQEHQqhSBwgnBz4ZAi9u6loQQpnA0ZBDH9calZCwmPnGvDlnzwlNNZCJ27dGjySZCszf",
   "ig_user_id": "17841436537356180",
-  "poll_interval_seconds": 30,
+  "poll_interval_seconds": 15,
   "app_id": "1034094885997144",
   "app_secret": "5a39e6608092bb99950c83d1d14a769b",
   "ig_username": "",

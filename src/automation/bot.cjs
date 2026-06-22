@@ -15,7 +15,7 @@ let TOKEN = CONFIG.access_token || process.env.ACCESS_TOKEN || '';
 const IG_ID = process.env.IG_USER_ID || CONFIG.ig_user_id || '';
 const APP_ID = process.env.APP_ID || CONFIG.app_id || '';
 const APP_SECRET = process.env.APP_SECRET || CONFIG.app_secret || '';
-let POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_interval_seconds || '30', 10);
+let POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_interval_seconds || '15', 10);
 let ENFORCE_24H_WINDOW = CONFIG.enforce_24h_window === true;
 let DM_KEYWORD_ENABLED = CONFIG.dm_keyword_enabled === true;
 
