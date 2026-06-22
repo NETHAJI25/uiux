@@ -174,8 +174,6 @@ async function sendPostShare(recipientId, postMediaId) {
 
 async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/replies?message=${encodeURIComponent(msg)}`, 'POST'); }
 
-const BOT_START_TIME = Date.now();
-
 // ─── Token Refresh ───
 async function refreshToken() {
   if (!APP_ID || !APP_SECRET || !TOKEN) return;
@@ -211,11 +209,6 @@ async function processComments(mediaId) {
       console.log(`Matched: @${c.from?.username||'?'} "${c.text}" → ${keyword}`);
       stats.totalCommentsProcessed++;
       stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
-      const commentTime = c.timestamp ? new Date(c.timestamp).getTime() : 0;
-      if (commentTime < BOT_START_TIME) {
-        saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, keyword, mediaId, type:'comment', replyOk:false, dmOk:false, fallback:false, skipped:true, ts:Date.now() });
-        saveStats(); continue;
-      }
       stats.lastActivityTime = Date.now();
       const dmMsg = KEYWORDS[keyword];
       const replyTxt = REPLY_TEMPLATE.replace(/{keyword}/g, keyword);
@@ -572,7 +565,7 @@ loadProcessedDMs();
   const kwCount = Object.keys(KEYWORDS).length;
   const postKwCount = Object.keys(POST_KEYWORDS).filter(k => POST_KEYWORDS[k]?.length).length;
   console.log(`Bot ready: ${kwCount} keywords, ${postKwCount} posts with keyword mappings, IG_ID=${IG_ID ? 'set' : 'MISSING'}, TOKEN=${TOKEN ? 'set' : 'MISSING'}`);
-  setInterval(refreshToken, 25 * 24 * 60 * 60 * 1000);
+  setInterval(refreshToken, 20 * 24 * 60 * 60 * 1000);
   setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
   await run();
 })();
