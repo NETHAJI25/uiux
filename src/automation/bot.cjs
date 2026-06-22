@@ -10,7 +10,7 @@ let CONFIG = {};
 const configPath = path.join(__dirname, 'config.json');
 try { if (fs.existsSync(configPath)) CONFIG = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch(e) {}
 
-let TOKEN = process.env.ACCESS_TOKEN || CONFIG.access_token || '';
+let TOKEN = CONFIG.access_token || process.env.ACCESS_TOKEN || '';
 const IG_ID = process.env.IG_USER_ID || CONFIG.ig_user_id || '';
 const APP_ID = process.env.APP_ID || CONFIG.app_id || '';
 const APP_SECRET = process.env.APP_SECRET || CONFIG.app_secret || '';
