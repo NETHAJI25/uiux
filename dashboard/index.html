@@ -24,18 +24,12 @@
   .dot { width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block; }
   .dot.red { background:var(--red); }
   .content { flex:1; overflow-y:auto; padding:16px; padding-bottom:80px; }
-  @media(min-width:768px){
-    .sidebar { display:block; }
-    .topbar { display:none; }
-    .content { padding:24px 32px; }
-    .bottom-nav { display:none!important; }
-  }
+  @media(min-width:768px){ .sidebar { display:block; } .topbar { display:none; } .content { padding:24px 32px; } .bottom-nav { display:none!important; } }
   .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:50; }
   .bottom-nav .nav-item { flex:1; padding:6px 4px; text-align:center; border:none; background:none; font-family:inherit; font-size:10px; color:var(--muted); cursor:pointer; }
   .bottom-nav .nav-item .icon { font-size:18px; display:block; margin-bottom:1px; }
   .bottom-nav .nav-item.active { color:var(--accent); }
   .page { display:none; } .page.active { display:block; }
-  h2 { font-size:16px; font-weight:600; margin-bottom:14px; }
   .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px; }
   @media(min-width:768px){ .grid { grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; } }
   .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; }
@@ -59,7 +53,7 @@
   .btn-d { background:var(--red); color:#fff; }
   .btn-g { background:transparent; color:var(--muted); border:1px solid var(--border); } .btn-g:hover { color:var(--text); border-color:#444; }
   .btn-s { padding:4px 9px; font-size:11px; }
-  input,textarea { background:#18181b; border:1px solid var(--border); color:var(--text); padding:9px 12px; border-radius:7px; font-size:13px; width:100%; font-family:inherit; outline:none; }
+  input,textarea,select { background:#18181b; border:1px solid var(--border); color:var(--text); padding:9px 12px; border-radius:7px; font-size:13px; width:100%; font-family:inherit; outline:none; }
   input:focus,textarea:focus { border-color:var(--accent); }
   textarea { resize:vertical; min-height:60px; }
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:flex-end; justify-content:center; z-index:100; }
@@ -81,7 +75,7 @@
   @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
   .bar-bg { background:#222; border-radius:3px; height:6px; width:100%; }
   .bar-fill { height:6px; border-radius:3px; background:var(--accent); }
-  .flex { display:flex; align-items:center; gap:6px; } .flex-wrap { flex-wrap:wrap; } .flex-1 { flex:1; } .mb-1 { margin-bottom:6px; } .mt-1 { margin-top:6px; } .w-full { width:100%; }
+  .flex { display:flex; align-items:center; gap:6px; } .flex-wrap { flex-wrap:wrap; } .flex-1 { flex:1; } .mb-1 { margin-bottom:6px; } .mt-1 { margin-top:6px; } .w-full { width:100%; } .gap-2 { gap:8px; }
   .help { background:#0f1a0f; border:1px solid #22c55e22; border-radius:var(--radius); padding:12px; margin-bottom:14px; font-size:13px; line-height:1.6; }
   .help strong { color:var(--green); }
   .code { font-family:monospace; background:#222; padding:1px 4px; border-radius:3px; font-size:11px; }
@@ -91,8 +85,12 @@
   .inbox-item .head .time { font-size:11px; color:var(--muted); }
   .inbox-item .comment { font-size:12px; color:#bbb; margin-bottom:6px; }
   .inbox-item .status { display:flex; gap:6px; flex-wrap:wrap; }
-  .kw-toggle:hover { filter:brightness(1.15); }
   .err-banner { background:#1a0a0a; border:1px solid #ef444444; border-radius:var(--radius); padding:12px; margin-bottom:14px; font-size:12px; color:#fca5a5; line-height:1.5; }
+  .user-row { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .user-row .name { font-weight:600; font-size:13px; flex:1; min-width:80px; }
+  .user-row .count { font-size:11px; color:var(--muted); }
+  .user-row .tag-input { flex:1; min-width:100px; padding:4px 8px; font-size:11px; border-radius:4px; }
+  .user-row .tag-label { background:#1e2a4a; color:#93c5fd; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -102,6 +100,7 @@
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span> Dashboard</button>
   <button class="nav-item" data-page="keywords"><span class="icon">⚡</span> Keywords</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span> Inbox</button>
+  <button class="nav-item" data-page="users"><span class="icon">👥</span> Users</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span> Settings</button>
   <div class="footer"><div id="sbUptime">--</div><div id="sbPolls">--</div></div>
 </div>
@@ -112,7 +111,7 @@
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div id="dashError" style="display:none;"></div>
-  <div class="help"><strong>✅ How it works:</strong> When someone comments a keyword on your Instagram post, the bot replies and sends a DM. All data streams from the Railway backend.</div>
+  <div class="help"><strong>✅ Bot Active.</strong> Auto-replying to keyword comments + sending DMs.</div>
   <div class="grid">
     <div class="card"><div class="lbl">Polls</div><div class="val bl" id="totalPolls">0</div></div>
     <div class="card"><div class="lbl">Comments</div><div class="val" id="totalCommentsFound">0</div></div>
@@ -124,7 +123,7 @@
   </div>
   <div class="section-label">⚡ Keyword Performance</div>
   <div id="kwPerf"><div class="empty"><div class="icon">📊</div><p>No data yet.</p></div></div>
-  <div class="section-label">📋 Recent Activity</div>
+  <div class="section-label">📋 Activity</div>
   <div class="box">
     <div class="r"><span class="lbl">Last Poll</span><span class="val" id="lastPoll">--</span></div>
     <div class="r"><span class="lbl">Last Trigger</span><span class="val" id="lastActivity">--</span></div>
@@ -134,18 +133,33 @@
 
 <!-- KEYWORDS -->
 <div class="page" id="page-keywords">
-  <div class="help"><strong>⚡ Keywords:</strong> Each keyword triggers an auto-reply + DM. Manage keywords below.</div>
-  <div id="kwList"><div class="empty"><div class="icon">⚡</div><p>Loading keywords...</p></div></div>
+  <div class="help"><strong>⚡ Keywords:</strong> Each keyword triggers auto-reply comment + DM. Add/edit/delete below.</div>
+  <div class="flex flex-wrap mb-1 gap-2">
+    <button class="btn btn-p flex-1" onclick="openKwModal()">+ Add Keyword</button>
+    <button class="btn btn-g" onclick="saveKeywords()" id="kwSaveBtn" style="display:none;">Save Changes</button>
+  </div>
+  <div id="kwList"><div class="empty"><div class="icon">⚡</div><p>Loading...</p></div></div>
 </div>
 
 <!-- INBOX -->
 <div class="page" id="page-inbox">
-  <div class="help"><strong>📨 Inbox:</strong> Every keyword trigger is logged here.</div>
+  <div class="help"><strong>📨 Inbox:</strong> Every keyword trigger logged here.</div>
   <div id="inboxContent"><div class="empty"><div class="icon">📭</div><p>No activity yet.</p></div></div>
+</div>
+
+<!-- USERS -->
+<div class="page" id="page-users">
+  <div class="help"><strong>👥 Users:</strong> Everyone who triggered a keyword. Add tags/labels to organize them.</div>
+  <div id="usersContent"><div class="empty"><div class="icon">👥</div><p>Loading...</p></div></div>
 </div>
 
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
+  <div class="section-label">Reply Comment Template</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Public reply when someone comments a keyword (use <span class="code">{keyword}</span>)</div>
+    <div class="flex"><input id="replyTemplateInput" value="Check your DM ✅ Thanks for commenting!" style="font-size:12px;"><button class="btn btn-p btn-s" onclick="saveReplyTemplate()">Save</button></div>
+  </div>
   <div class="section-label">Bot Status</div>
   <div class="box">
     <div class="r"><span class="lbl">Status</span><span class="val" id="sStatus"><span class="chip chip-warn">Checking...</span></span></div>
@@ -154,9 +168,8 @@
   </div>
   <div class="section-label">Backend</div>
   <div class="box">
-    <div class="r"><span class="lbl">Railway URL</span><span class="val" style="font-size:10px;word-break:break-all;" id="sBackend">--</span></div>
+    <div class="r"><span class="lbl">Railway API</span><span class="val" style="font-size:10px;word-break:break-all;" id="sBackend">--</span></div>
     <div class="r"><span class="lbl">Keywords</span><span class="val" id="sKwCount">--</span></div>
-    <div class="r"><span class="lbl">Poll Interval</span><span class="val" id="sPollInterval">--</span></div>
   </div>
 </div>
 
@@ -167,24 +180,30 @@
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Home</button>
   <button class="nav-item" data-page="keywords"><span class="icon">⚡</span>Triggers</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span>Inbox</button>
+  <button class="nav-item" data-page="users"><span class="icon">👥</span>Users</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Set</button>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="kwModal">
+  <div class="modal">
+    <h3 id="modalTitle">Add Keyword</h3>
+    <div class="f"><label>Keyword (what users comment)</label><input id="kwKey" placeholder="e.g. PORTFOLIO" maxlength="30" style="text-transform:uppercase;" autocomplete="off"></div>
+    <div class="f"><label>DM Response (what bot sends privately)</label><textarea id="kwVal" rows="3" placeholder="Hey! Here's the link: https://..."></textarea></div>
+    <div class="actions"><button class="btn btn-g" onclick="closeKwModal()">Cancel</button><button class="btn btn-p" onclick="saveKw()">Save</button></div>
+  </div>
 </div>
 
 <div class="toast-cont" id="toastCont"></div>
 
 <script>
-// ═══════════════════════════════════════════════════
-// CONFIG - Change this to your Railway backend URL
-// ═══════════════════════════════════════════════════
 const API_BASE = 'https://uiux-production-2f71.up.railway.app';
-
 let KW = {};
-let stats = {};
+let editKwKey = null;
 
-function toast(m,t='ok'){const e=document.createElement('div');e.className='toast '+t;e.textContent=m;document.getElementById('toastCont').appendChild(e);setTimeout(()=>e.remove(),3000);}
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(m,t){const e=document.createElement('div');e.className='toast '+(t||'ok');e.textContent=m;document.getElementById('toastCont').appendChild(e);setTimeout(()=>e.remove(),3000);}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// Navigation
 document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',()=>{
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -192,40 +211,35 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   document.getElementById('page-'+el.dataset.page).classList.add('active');
   if(el.dataset.page==='keywords') loadKW();
   if(el.dataset.page==='inbox') loadInbox();
+  if(el.dataset.page==='users') loadUsers();
 })});
 
-// API helper
-async function api(path){
-  const r=await fetch(API_BASE+path);
-  if(!r.ok) throw new Error('HTTP '+r.status);
+async function api(path, opts){
+  const r=await fetch(API_BASE+path, opts||{});
   const txt=await r.text();
   let d;
-  try{ d=JSON.parse(txt); }catch(e){ throw new Error('Non-JSON response: '+txt.substring(0,80)); }
+  try{ d=JSON.parse(txt); }catch(e){ throw new Error('Non-JSON: '+txt.substring(0,80)); }
+  if(d.error) throw new Error(d.error);
   return d;
 }
 
-// Show error on dashboard
 function showDashError(msg){
   const el=document.getElementById('dashError');
-  el.style.display='block';
-  el.className='err-banner';
-  el.innerHTML='<strong>⚠️ Backend Error:</strong> '+esc(msg)+'<br><small style="color:var(--muted);">Make sure the Railway bot is running at <strong>'+esc(API_BASE)+'</strong></small>';
+  el.style.display='block'; el.className='err-banner';
+  el.innerHTML='<strong>⚠️ Backend Error:</strong> '+esc(msg);
 }
 
-// DASHBOARD
+// ─── DASHBOARD ───
 async function refreshDash(){
   try{
     const d=await api('/api/stats');
     document.getElementById('dashError').style.display='none';
-    stats=d;
     ['totalPolls','totalCommentsFound','totalCommentsProcessed','totalRepliesSent','totalDMsent','totalFallbackReplies','totalErrors'].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=d[k]||0});
     const u=d.uptimeStr||'--'; document.getElementById('tbUptime').textContent=u; document.getElementById('sbUptime').textContent='Uptime: '+u; document.getElementById('sbPolls').textContent='Polls: '+(d.totalPolls||0);
     document.getElementById('lastPoll').textContent=d.lastPollStr||'--'; document.getElementById('lastActivity').textContent=d.lastActivityStr||'--';
     if(d.lastError){document.getElementById('lastErrorR').style.display='flex';document.getElementById('lastError').textContent=d.lastError;}
     else{document.getElementById('lastErrorR').style.display='none';}
-    // Status dot
-    const dots=document.querySelectorAll('.status .dot');
-    dots.forEach(dot=>{dot.className='dot'+(d.totalPolls>0?'':' red')});
+    document.querySelectorAll('.status .dot').forEach(dot=>{dot.className='dot'+(d.totalPolls>0?'':' red')});
     const kp=document.getElementById('kwPerf'),keys=Object.keys(d.keywordsTriggered);
     if(!keys.length){kp.innerHTML='<div class="empty"><div class="icon">📊</div><p>No keywords triggered yet.</p></div>';return;}
     const mv=Math.max(...keys.map(k=>d.keywordsTriggered[k]),1);
@@ -237,24 +251,40 @@ async function refreshDash(){
     showDashError(e.message);
     document.getElementById('sbUptime').textContent='Offline';
     document.getElementById('sbPolls').textContent='Check backend';
-    const dots=document.querySelectorAll('.status .dot');
-    dots.forEach(dot=>{dot.className='dot red'});
+    document.querySelectorAll('.status .dot').forEach(dot=>{dot.className='dot red'});
   }
 }
 refreshDash(); setInterval(refreshDash,8000);
 
-// KEYWORDS
-const kwEl=()=>document.getElementById('kwList');
+// ─── KEYWORDS (with management) ───
 function renderKW(){
-  const keys=Object.keys(KW),div=kwEl();
-  if(!keys.length){div.innerHTML='<div class="empty"><div class="icon">⚡</div><p>No keywords defined.</p></div>';return;}
-  let h='<table><tr><th>Keyword</th><th>DM Response</th></tr>';
-  for(const k of keys) h+='<tr><td style="width:70px;"><span class="kw">'+esc(k)+'</span></td><td style="font-size:11px;max-width:280px;word-break:break-word;line-height:1.4;">'+esc(KW[k])+'</td></tr>';
+  const keys=Object.keys(KW),div=document.getElementById('kwList');
+  if(!keys.length){div.innerHTML='<div class="empty"><div class="icon">⚡</div><p>No keywords. Tap "+ Add Keyword" to add one.</p></div>';return;}
+  document.getElementById('kwSaveBtn').style.display='block';
+  let h='<table><tr><th>Keyword</th><th>DM Response</th><th></th></tr>';
+  for(const k of keys) h+='<tr><td style="width:70px;"><span class="kw">'+esc(k)+'</span></td>'
+    +'<td style="font-size:11px;max-width:200px;word-break:break-word;line-height:1.4;">'+esc(KW[k])+'</td>'
+    +'<td style="width:80px;"><div class="flex" style="justify-content:flex-end;">'
+    +'<button class="btn btn-s btn-g" onclick="editKw(\''+k+'\')">Edit</button>'
+    +'<button class="btn btn-s btn-d" onclick="delKw(\''+k+'\')">Del</button></div></td></tr>';
   h+='</table>'; div.innerHTML=h;
 }
-async function loadKW(){try{const d=await api('/api/keywords');KW=d.keywords||{};renderKW();}catch(e){kwEl().innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed to load keywords: '+esc(e.message)+'</p></div>';}}
+async function loadKW(){try{const d=await api('/api/keywords');KW=d.keywords||{};renderKW();}catch(e){document.getElementById('kwList').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}}
+function openKwModal(k){editKwKey=k||null;document.getElementById('modalTitle').textContent=k?'Edit Keyword':'Add Keyword';document.getElementById('kwKey').value=k||'';document.getElementById('kwKey').disabled=!!k;document.getElementById('kwVal').value=k?KW[k]||'':'';document.getElementById('kwModal').classList.add('open');}
+function closeKwModal(){document.getElementById('kwModal').classList.remove('open');}
+function editKw(k){openKwModal(k);}
+function saveKw(){
+  const key=document.getElementById('kwKey').value.trim().toUpperCase();
+  const val=document.getElementById('kwVal').value.trim();
+  if(!key||!val){toast('Fill both fields','err');return;}
+  KW[key]=val; closeKwModal(); renderKW(); saveKeywords();
+}
+function delKw(k){if(!confirm('Delete "'+k+'"?'))return;delete KW[k];renderKW();saveKeywords();}
+async function saveKeywords(){
+  try{document.getElementById('kwSaveBtn').textContent='Saving...';await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Keywords saved!');}catch(e){document.getElementById('kwSaveBtn').textContent='Save Changes';toast('Failed: '+e.message,'err');}
+}
 
-// INBOX
+// ─── INBOX ───
 async function loadInbox(){
   try{
     const d=await api('/api/inbox');
@@ -269,17 +299,51 @@ async function loadInbox(){
         +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span></div>'
         +'<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Post: <span class="code">'+(item.mediaId||'?')+'</span></div>'
         +'<div class="status">'
-        +(skipped
-          ? '<span class="chip chip-warn">⏭ Skipped</span>'
-          : '<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'✅':'❌')+'</span>'
-          + '<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'✅':item.fallback?'⚠️ Fallback':'❌')+'</span>'
-        )+'</div></div>';
+        +(skipped?'<span class="chip chip-warn">⏭ Skipped</span>'
+          :'<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'✅':'❌')+'</span>'
+          +'<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'✅':item.fallback?'⚠️ Fallback':'❌')+'</span>')
+        +'</div></div>';
     }
     div.innerHTML=h;
-  }catch(e){document.getElementById('inboxContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed to load inbox: '+esc(e.message)+'</p></div>';}
+  }catch(e){document.getElementById('inboxContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}
 }
 
-// SETTINGS
+// ─── USERS ───
+let USERS = [];
+let USER_TAGS = {};
+async function loadUsers(){
+  try{
+    const d=await api('/api/users');
+    USERS=d.users||[];
+    // Build tags map
+    USER_TAGS={};
+    for(const u of USERS) if(u.tag) USER_TAGS[u.username]=u.tag;
+    renderUsers();
+  }catch(e){document.getElementById('usersContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}
+}
+function renderUsers(){
+  const div=document.getElementById('usersContent');
+  if(!USERS.length){div.innerHTML='<div class="empty"><div class="icon">👥</div><p>No users yet. When people comment keywords, they appear here.</p></div>';return;}
+  let h='<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">'+USERS.length+' total users</div>';
+  for(const u of USERS){
+    const tag=USER_TAGS[u.username]||'';
+    h+='<div class="user-row">'
+      +'<span class="name">@'+esc(u.username)+'</span>'
+      +'<span class="count">'+u.count+' triggers</span>'
+      +'<input class="tag-input" placeholder="Add tag..." value="'+esc(tag)+'" data-user="'+esc(u.username)+'" onchange="updateUserTag(this)">'
+      +'<button class="btn btn-s btn-g" onclick="applyTag(\''+esc(u.username)+'\',this)">Save</button>'
+      +'</div>';
+  }
+  h+='<div style="margin-top:8px;"><button class="btn btn-p" onclick="saveUserTags()">Save All Tags</button></div>';
+  div.innerHTML=h;
+}
+function updateUserTag(el){USER_TAGS[el.dataset.user]=el.value;}
+function applyTag(name,btn){btn.textContent='Saving...';saveUserTags();}
+async function saveUserTags(){
+  try{await api('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags:USER_TAGS})});toast('User tags saved!');}catch(e){toast('Failed: '+e.message,'err');}
+}
+
+// ─── SETTINGS ───
 async function refreshSet(){
   try{
     const d=await api('/api/stats');
@@ -287,14 +351,17 @@ async function refreshSet(){
     document.getElementById('sUptime').textContent=d.uptimeStr||'--';
     document.getElementById('sStart').textContent=d.startTime?new Date(d.startTime).toLocaleString():'--';
     document.getElementById('sBackend').textContent=API_BASE;
-    document.getElementById('sKwCount').textContent=Object.keys(KW).length||'--';
-    document.getElementById('sPollInterval').textContent='--';
-    if(d.pollInterval) document.getElementById('sPollInterval').textContent=d.pollInterval+'s';
+    document.getElementById('sKwCount').textContent=Object.keys(KW).length;
   }catch(e){document.getElementById('sStatus').innerHTML='<span class="chip chip-fail">● Offline</span>';}
 }
 setInterval(refreshSet,10000); refreshSet();
+async function saveReplyTemplate(){
+  const val=document.getElementById('replyTemplateInput').value.trim();
+  if(!val){toast('Enter a template','err');return;}
+  try{await api('/api/reply-template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template:val})});toast('Reply template saved!');}catch(e){toast('Failed: '+e.message,'err');}
+}
 
-// Initial load
+// Initial loads
 loadKW();
 </script>
 </body>

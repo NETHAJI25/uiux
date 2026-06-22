@@ -16,12 +16,13 @@ const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_
 
 let KEYWORDS = {};
 try { KEYWORDS = JSON.parse(process.env.KEYWORDS_JSON || 'null') || CONFIG.keywords || {}; } catch(e) {}
-let REPLY_TEMPLATE = process.env.REPLY_TEMPLATE || CONFIG.reply_template || 'Got "{keyword}"! Check DMs';
+let REPLY_TEMPLATE = process.env.REPLY_TEMPLATE || CONFIG.reply_template || 'Check your DM \u2705 Thanks for commenting!';
 let POST_KEYWORDS = {};
 try { POST_KEYWORDS = JSON.parse(process.env.POST_KEYWORDS_JSON || 'null') || CONFIG.post_keywords || {}; } catch(e) {}
 
 const PROCESSED_FILE = path.join(__dirname, 'processed.json');
 const STATS_FILE = path.join(__dirname, 'stats.json');
+const USERS_FILE = path.join(__dirname, 'users.json');
 
 let stats = { startTime: Date.now(), totalPolls:0, totalCommentsFound:0, totalCommentsProcessed:0, totalRepliesSent:0, totalDMsent:0, totalErrors:0, totalFallbackReplies:0, keywordsTriggered:{}, lastPollTime:null, lastActivityTime:null, lastError:null, uptime:0 };
 function loadStats() { try { const s = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats = { ...stats, ...s, startTime: s.startTime || Date.now() }; } catch(e) {} }
@@ -166,6 +167,39 @@ const server = http.createServer((req, res) => {
       let b = '';
       req.on('data', c => b += c);
       req.on('end', () => { try { const { keyword, username, text } = JSON.parse(b); if (!keyword || !KEYWORDS[keyword]) { json({ error: 'Keyword not found' }, 400); return; } saveProcessed({ id:'test_'+Date.now(), username:username||'test_user', text:text||keyword, keyword, replyOk:true, dmOk:false, fallback:true, ts:Date.now() }); stats.totalCommentsFound++; stats.totalCommentsProcessed++; stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1; stats.lastActivityTime=Date.now(); saveStats(); json({ ok:true }); } catch(e) { json({ error: 'Invalid' }, 400); } });
+      return;
+    }
+
+    // Users
+    if (url === '/api/users' && method === 'GET') {
+      const items = loadProcessed();
+      let userTags = {};
+      try { userTags = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch(e) {}
+      const seen = {};
+      const users = [];
+      for (const item of items) {
+        const name = item.username || 'unknown';
+        if (seen[name]) continue;
+        seen[name] = true;
+        const tag = userTags[name] || '';
+        const count = items.filter(i => (i.username||'unknown') === name).length;
+        const last = items.filter(i => (i.username||'unknown') === name).sort((a,b) => (b.ts||0) - (a.ts||0))[0];
+        users.push({ username: name, tag, count, lastSeen: last?.ts||0, lastKeyword: last?.keyword||'' });
+      }
+      json({ users });
+      return;
+    }
+    if (url === '/api/users' && method === 'POST') {
+      let b = '';
+      req.on('data', c => b += c);
+      req.on('end', () => {
+        try {
+          const { tags } = JSON.parse(b);
+          if (!tags) { json({ error: 'Missing tags' }, 400); return; }
+          try { fs.writeFileSync(USERS_FILE, JSON.stringify(tags, null, 2)); } catch(e) { json({ error: 'Write failed' }, 500); return; }
+          json({ ok: true });
+        } catch(e) { json({ error: 'Invalid JSON' }, 400); }
+      });
       return;
     }
 
