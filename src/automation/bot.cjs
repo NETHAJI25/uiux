@@ -391,6 +391,7 @@ const server = http.createServer((req, res) => {
         if (data.enforce_24h_window !== undefined) { ENFORCE_24H_WINDOW = data.enforce_24h_window === true; persist.enforce_24h_window = ENFORCE_24H_WINDOW; }
         if (data.dm_keyword_enabled !== undefined) { DM_KEYWORD_ENABLED = data.dm_keyword_enabled === true; persist.dm_keyword_enabled = DM_KEYWORD_ENABLED; }
         if (data.window_expired_msg !== undefined) { persist.window_expired_msg = data.window_expired_msg; }
+        if (data.access_token !== undefined) { TOKEN = data.access_token; CONFIG.access_token = data.access_token; persist.access_token = data.access_token; }
         try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); Object.assign(c, persist); fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
         json({ ok: true });
       });
