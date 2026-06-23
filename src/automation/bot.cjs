@@ -391,6 +391,25 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    if (urlPath === '/api/instagram/scrape' && method === 'POST') {
+      body((data) => {
+        const pid = data.profile_id || IG_ID;
+        const first = Math.min(data.first || 10, 50);
+        if (!pid || !TOKEN) { json({ error: 'Missing profile_id or token' }, 400); return; }
+        Promise.all([
+          apiRequest(`/${pid}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count`),
+          apiRequest(`/${pid}/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&limit=${first}`)
+        ]).then(([profile, media]) => {
+          json({
+            profile: profile.error ? null : profile,
+            posts: media.error ? [] : (media.data || []),
+            error: profile.error || media.error || null
+          });
+        }).catch(e => json({ error: e.message }, 500));
+      });
+      return;
+    }
+
     if (urlPath === '/api/health' || urlPath === '/health') { json({ ok: true, uptime: getDuration(Date.now()-stats.startTime) }); return; }
     if (urlPath === '/') { json({ ok: true, name: 'IG Auto-DM' }); return; }
 
