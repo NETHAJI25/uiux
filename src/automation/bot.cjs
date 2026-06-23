@@ -6,7 +6,6 @@ const path = require('path');
 process.on('unhandledRejection', (err) => { console.error('Unhandled Rejection:', err?.message||err); });
 process.on('uncaughtException', (err) => { console.error('Uncaught Exception:', err?.message||err); });
 
-// ─── Config ───
 let CONFIG = {};
 const configPath = path.join(__dirname, 'config.json');
 try { if (fs.existsSync(configPath)) CONFIG = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch(e) {}
@@ -18,16 +17,8 @@ const APP_ID = process.env.APP_ID || CONFIG.app_id || '';
 const APP_SECRET = process.env.APP_SECRET || CONFIG.app_secret || '';
 let POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_SECONDS || CONFIG.poll_interval_seconds || '15', 10);
 let ENFORCE_24H_WINDOW = CONFIG.enforce_24h_window === true;
-let DM_KEYWORD_ENABLED = CONFIG.dm_keyword_enabled === true;
-
-let KEYWORDS = {};
-try { KEYWORDS = JSON.parse(process.env.KEYWORDS_JSON || 'null') || CONFIG.keywords || {}; } catch(e) {}
 let REPLY_TEMPLATE = process.env.REPLY_TEMPLATE || CONFIG.reply_template || 'Check your DM \u2705 Thanks for commenting!';
-let POST_KEYWORDS = {};
-try { POST_KEYWORDS = JSON.parse(process.env.POST_KEYWORDS_JSON || 'null') || CONFIG.post_keywords || {}; } catch(e) {}
-
-let FOLLOW_GATE_ENABLED = CONFIG.follow_gate_enabled === true;
-let FOLLOW_PROMPT = CONFIG.follow_prompt || 'Follow @{ig_username} and comment {keyword} again to get the link!';
+let DM_MESSAGE = CONFIG.dm_message || 'Here is the link you requested! Let me know if you have any questions.';
 let RATE_LIMIT_PER_HOUR = parseInt(CONFIG.rate_limit_per_hour || '150', 10);
 let IG_USERNAME = CONFIG.ig_username || '';
 
@@ -38,15 +29,13 @@ const FOLLOWERS_CACHE_FILE = path.join(__dirname, 'followers_cache.json');
 const INTERACTIONS_FILE = path.join(__dirname, 'interactions.json');
 const CLICKS_FILE = path.join(__dirname, 'clicks.json');
 
-// ─── Stats ───
-let stats = { startTime: Date.now(), totalPolls:0, totalCommentsFound:0, totalCommentsProcessed:0, totalRepliesSent:0, totalDMsent:0, totalErrors:0, totalFallbackReplies:0, totalFollowGateBlocked:0, totalInboundDMs:0, totalInboundReplied:0, totalClicks:0, keywordsTriggered:{}, lastPollTime:null, lastActivityTime:null, lastError:null, uptime:0 };
+let stats = { startTime: Date.now(), totalPolls:0, totalCommentsFound:0, totalCommentsProcessed:0, totalRepliesSent:0, totalDMsent:0, totalErrors:0, totalFollowGateBlocked:0, totalClicks:0, lastPollTime:null, lastActivityTime:null, lastError:null, uptime:0 };
 function loadStats() { try { const s = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8')); stats = { ...stats, ...s, startTime: s.startTime || Date.now() }; } catch(e) {} }
 function saveStats() { stats.uptime = Date.now() - stats.startTime; try { fs.writeFileSync(STATS_FILE, JSON.stringify(stats, null, 2)); } catch(e) {} }
 
 function getDuration(ms) { const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60); return `${d}d ${h}h ${m}m ${s%60}s`; }
 function formatTime(ts) { try { return new Date(ts).toLocaleString('en-IN', {timeZone:'Asia/Kolkata'}); } catch(e) { return ''; } }
 
-// ─── API Request ───
 function apiRequest(endpoint, method='GET', body=null) {
   return new Promise((resolve,reject)=>{
     try {
@@ -63,7 +52,6 @@ function apiRequest(endpoint, method='GET', body=null) {
   });
 }
 
-// ─── Followers Cache ───
 let followersCache = { ids: new Set(), usernames: new Set(), lastRefreshed: 0, isRefreshing: false };
 function loadFollowersCache() {
   try {
@@ -105,7 +93,6 @@ function isFollowing(igUserId, username) {
   return false;
 }
 
-// ─── Rate Limiter ───
 let dmQueue = [];
 let dmSentTimestamps = [];
 function canSendDM() {
@@ -115,7 +102,6 @@ function canSendDM() {
 }
 function trackDMsent() { dmSentTimestamps.push(Date.now()); }
 
-// ─── 24h Window ───
 function loadInteractions() { try { return JSON.parse(fs.readFileSync(INTERACTIONS_FILE, 'utf8')); } catch { return {}; } }
 function saveInteractions(data) { try { fs.writeFileSync(INTERACTIONS_FILE, JSON.stringify(data, null, 2)); } catch(e) {} }
 function touchInteraction(userId) { const d = loadInteractions(); d[userId] = Date.now(); saveInteractions(d); }
@@ -127,31 +113,27 @@ function isWithinWindow(userId) {
   return Date.now() - last < 24 * 60 * 60 * 1000;
 }
 
-// ─── Click Tracking ───
 function loadClicks() { try { return JSON.parse(fs.readFileSync(CLICKS_FILE, 'utf8')); } catch { return []; } }
 function saveClicks(data) { try { fs.writeFileSync(CLICKS_FILE, JSON.stringify(data.slice(-5000), null, 2)); } catch(e) {} }
-function trackClick(clickId, url, username, keyword) {
+function trackClick(clickId, url, username) {
   const clicks = loadClicks();
-  clicks.push({ clickId, url, username, keyword, ts: Date.now() });
+  clicks.push({ clickId, url, username, ts: Date.now() });
   saveClicks(clicks);
   stats.totalClicks++;
 }
-function replaceLinksWithTracked(text, username, keyword) {
+function replaceLinksWithTracked(text, username) {
   const urlRegex = /https?:\/\/[^\s,]+/g;
   let idx = 0;
   return text.replace(urlRegex, (match) => {
     const clickId = `clk_${Date.now()}_${idx++}`;
-    trackClick(clickId, match, username, keyword);
+    trackClick(clickId, match, username);
     return `${match} [click:${clickId}]`;
   });
 }
 
-// ─── Data ───
 function loadProcessed() { try { return JSON.parse(fs.readFileSync(PROCESSED_FILE, 'utf8')); } catch { return []; } }
 function saveProcessed(entry) { const list = loadProcessed(); list.push(entry); try { fs.writeFileSync(PROCESSED_FILE, JSON.stringify(list.slice(-1000))); } catch(e) {} }
-function extractKeyword(text) { const u=text.toUpperCase(); for (const k of Object.keys(KEYWORDS)) { if (u.includes(k)) return k; } return null; }
 
-// ─── DM Sending ───
 async function sendDM(recipientId, msg, mediaUrl) {
   try {
     const body = { recipient: { id: recipientId } };
@@ -163,18 +145,9 @@ async function sendDM(recipientId, msg, mediaUrl) {
     return await apiRequest(`/${IG_ID}/messages`, 'POST', body);
   } catch(e) { return { error: e.message }; }
 }
-async function sendPostShare(recipientId, postMediaId) {
-  try {
-    return await apiRequest(`/${IG_ID}/messages`, 'POST', {
-      recipient: { id: recipientId },
-      message: { attachment: { type: 'MEDIA_SHARE', payload: { id: postMediaId } } }
-    });
-  } catch(e) { return { error: e.message }; }
-}
 
 async function replyToComment(cId, msg) { return await apiRequest(`/${cId}/replies?message=${encodeURIComponent(msg)}`, 'POST'); }
 
-// ─── Token Refresh ───
 async function refreshToken() {
   if (!APP_ID || !APP_SECRET || !TOKEN) return;
   try {
@@ -188,125 +161,67 @@ async function refreshToken() {
     } else if (data.error) console.error('Token refresh error:', data.error.message);
   } catch(e) { console.error('Token refresh failed:', e.message); }
 }
-// ─── Process Comment Triggers ───
+
 async function processComments(mediaId) {
   try {
     const comments = await apiRequest(`/${mediaId}/comments?fields=id,text,username,timestamp,from{id,username}&limit=50`);
     if (!comments || !comments.data) return;
     const processed = loadProcessed();
-    if (FOLLOW_GATE_ENABLED && (Date.now() - followersCache.lastRefreshed > 15 * 60 * 1000)) refreshFollowers().catch(()=>{});
+    if (Date.now() - followersCache.lastRefreshed > 15 * 60 * 1000) refreshFollowers().catch(()=>{});
     for (const c of comments.data) {
       if (processed.some(p => p.id === c.id)) continue;
       stats.totalCommentsFound++;
-      const uText = c.text.toUpperCase();
-      const postKwList = POST_KEYWORDS[mediaId];
-      let keyword = null;
-      if (postKwList && postKwList.length) {
-        keyword = postKwList.find(k => uText.includes(k));
-      }
-      if (!keyword) keyword = extractKeyword(c.text);
-      if (!keyword) continue;
-      console.log(`Matched: @${c.from?.username||'?'} "${c.text}" → ${keyword}`);
-      stats.totalCommentsProcessed++;
-      stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1;
       stats.lastActivityTime = Date.now();
-      const dmMsg = KEYWORDS[keyword];
-      const replyTxt = REPLY_TEMPLATE.replace(/{keyword}/g, keyword);
 
-      // 24h window check
       if (!isWithinWindow(c.from.id)) {
         const windowMsg = CONFIG.window_expired_msg || 'Thanks for your interest! Reply to this or send me a DM to continue.';
         await replyToComment(c.id, windowMsg);
-        saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, keyword, mediaId, type:'comment', replyOk:true, dmOk:false, fallback:false, windowBlocked:true, skipped:false, ts:Date.now() });
+        saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, mediaId, type:'comment', replyOk:true, dmOk:false, windowBlocked:true, ts:Date.now() });
         saveStats(); continue;
       }
 
-      // Follow gate
-      if (FOLLOW_GATE_ENABLED && !isFollowing(c.from.id, c.from?.username)) {
+      if (!isFollowing(c.from.id, c.from?.username)) {
         stats.totalFollowGateBlocked++;
-        const fp = FOLLOW_PROMPT.replace(/{ig_username}/g, IG_USERNAME).replace(/{keyword}/g, keyword).replace(/{username}/g, c.from?.username || 'there');
-        await replyToComment(c.id, fp);
-        saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, keyword, mediaId, type:'comment', replyOk:true, dmOk:false, fallback:false, followGate:true, skipped:false, ts:Date.now() });
+        console.log(`Blocked (not following): @${c.from?.username||'?'}`);
+        saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, mediaId, type:'comment', replyOk:false, dmOk:false, followGate:true, ts:Date.now() });
         saveStats(); continue;
       }
 
-      // Reply
-      const replyResult = await replyToComment(c.id, replyTxt);
-      let replyOk=false, dmOk=false, fb=false;
+      console.log(`Processing: @${c.from?.username||'?'}`);
+      stats.totalCommentsProcessed++;
+
+      const replyResult = await replyToComment(c.id, REPLY_TEMPLATE);
+      let replyOk=false, dmOk=false;
       if (replyResult && replyResult.error) { stats.totalErrors++; stats.lastError=`Reply: ${JSON.stringify(replyResult.error)}`; }
       else { stats.totalRepliesSent++; replyOk=true; }
 
-      // DM with link tracking
       if (canSendDM()) {
-        const trackedMsg = replaceLinksWithTracked(dmMsg, c.from?.username||'?', keyword);
-        const kwCfg = CONFIG.keyword_configs?.[keyword] || {};
+        const trackedMsg = replaceLinksWithTracked(DM_MESSAGE, c.from?.username||'?');
+        const kwCfg = CONFIG.keyword_configs?.['*'] || {};
         const dmResult = await sendDM(c.from.id, trackedMsg, kwCfg.media_url || null);
         if (dmResult && dmResult.error) {
           console.error(`DM failed for @${c.from?.username||'?'}:`, dmResult.error);
           stats.totalErrors++; stats.lastError=`DM: ${JSON.stringify(dmResult.error)}`;
-          await replyToComment(c.id, dmMsg); fb=true;
-          stats.totalFallbackReplies++;
         } else { stats.totalDMsent++; dmOk=true; trackDMsent(); touchInteraction(c.from.id); console.log(`DM sent to @${c.from?.username||'?'}`); }
-      } else { dmQueue.push({ recipientId: c.from.id, msg: dmMsg, commentId: c.id, keyword, mediaId, username: c.from?.username||'?', text: c.text }); }
+      } else { dmQueue.push({ recipientId: c.from.id, msg: DM_MESSAGE, commentId: c.id, mediaId, username: c.from?.username||'?', text: c.text }); }
 
-      saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, keyword, mediaId, type:'comment', replyOk, dmOk, fallback:fb, skipped:false, ts:Date.now() });
+      saveProcessed({ id:c.id, username:c.from?.username||'?', text:c.text, mediaId, type:'comment', replyOk, dmOk, ts:Date.now() });
       saveStats();
     }
   } catch(e) { stats.totalErrors++; stats.lastError=`processComments: ${e.message||e}`; saveStats(); }
 }
 
-// ─── Process Inbound DM Triggers ───
-let processedDMs = new Set();
-function loadProcessedDMs() { try { const d = JSON.parse(fs.readFileSync(path.join(__dirname, 'processed_dms.json'), 'utf8')); processedDMs = new Set(d); } catch {} }
-function saveProcessedDMs() { try { fs.writeFileSync(path.join(__dirname, 'processed_dms.json'), JSON.stringify([...processedDMs].slice(-2000))); } catch {} }
-
-async function processInboundDMs() {
-  if (!DM_KEYWORD_ENABLED || !IG_ID || !TOKEN) return;
-  try {
-    const convs = await apiRequest(`/${IG_ID}/conversations?fields=id,messages{id,from,to,message,created_time}&limit=20`);
-    if (!convs || !convs.data) return;
-    for (const conv of convs.data) {
-      const msgs = conv.messages?.data || [];
-      if (!msgs.length) continue;
-      const lastMsg = msgs[msgs.length - 1];
-      if (!lastMsg || processedDMs.has(lastMsg.id)) continue;
-      // Only process messages FROM users (not from our account)
-      const senderId = lastMsg.from?.id || '';
-      if (senderId === IG_ID) { processedDMs.add(lastMsg.id); continue; }
-      processedDMs.add(lastMsg.id);
-      stats.totalInboundDMs++;
-      const text = lastMsg.message || '';
-      const keyword = extractKeyword(text);
-      if (!keyword) continue;
-      stats.totalInboundReplied++;
-      const dmMsg = KEYWORDS[keyword];
-      if (!dmMsg) continue;
-      const kwCfg = CONFIG.keyword_configs?.[keyword] || {};
-      const trackedMsg = replaceLinksWithTracked(dmMsg, lastMsg.from?.username || 'unknown', keyword);
-      const dmResult = await sendDM(senderId, trackedMsg, kwCfg.media_url || null);
-      let replyOk = false;
-      if (dmResult && !dmResult.error) { replyOk = true; stats.totalDMsent++; trackDMsent(); touchInteraction(senderId); }
-      else { stats.totalErrors++; stats.lastError=`Inbound DM: ${JSON.stringify(dmResult?.error)}`; }
-      saveProcessed({ id:`dm_${lastMsg.id}`, username:lastMsg.from?.username||'?', text, keyword, mediaId:'DM', type:'inbound_dm', replyOk, dmOk:replyOk, fallback:false, skipped:false, ts:Date.now() });
-      saveStats();
-    }
-    saveProcessedDMs();
-  } catch(e) { /* silent - conversations API may fail if not available */ }
-}
-
-// ─── Process DM Queue ───
 async function processDMQueue() {
   if (!dmQueue.length || !canSendDM()) return;
   const item = dmQueue.shift();
   try {
     const result = await sendDM(item.recipientId, item.msg);
-    if (result && result.error) { stats.totalErrors++; await replyToComment(item.commentId, item.msg); stats.totalFallbackReplies++; }
+    if (result && result.error) { stats.totalErrors++; }
     else { stats.totalDMsent++; trackDMsent(); touchInteraction(item.recipientId); }
   } catch(e) { stats.totalErrors++; }
   saveStats();
 }
 
-// ─── Main Run Loop ───
 async function run() {
   try {
     stats.totalPolls++; stats.lastPollTime = Date.now();
@@ -314,13 +229,11 @@ async function run() {
     const media = await apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,comments_count&limit=5`);
     if (!media || media.error) { stats.totalErrors++; stats.lastError=`API: ${media?.error?.message||JSON.stringify(media?.error||'No response')}`; saveStats(); return; }
     if (media.data) { for (const p of media.data) { if ((p.comments_count||0)>0) await processComments(p.id); } }
-    if (DM_KEYWORD_ENABLED) await processInboundDMs();
     for (let i=0; i<3 && dmQueue.length; i++) await processDMQueue();
     saveStats();
   } catch(e) { stats.totalErrors++; stats.lastError=`run: ${e.message||e}`; saveStats(); }
 }
 
-// ─── HTTP Server ───
 const PORT = process.env.PORT || 3000;
 const server = http.createServer((req, res) => {
   try {
@@ -335,7 +248,6 @@ const server = http.createServer((req, res) => {
     let b = '';
     const body = (cb) => { req.on('data', c => b += c); req.on('end', () => { try { cb(JSON.parse(b)); } catch(e) { json({ error: 'Invalid JSON' }, 400); } }); };
 
-    // Click tracking redirect
     if (urlPath.startsWith('/click/')) {
       const clickId = urlPath.replace('/click/', '');
       const clicks = loadClicks();
@@ -344,27 +256,20 @@ const server = http.createServer((req, res) => {
       res.writeHead(302, { 'Location': '/' }); res.end(); return;
     }
 
-    // Stats
     if (urlPath === '/api/stats' && method === 'GET') {
       stats.uptime = Date.now() - stats.startTime;
       json({ ...stats, uptimeStr: getDuration(stats.uptime), lastPollStr: stats.lastPollTime ? formatTime(stats.lastPollTime) : null, lastActivityStr: stats.lastActivityTime ? formatTime(stats.lastActivityTime) : null, dmQueueLength: dmQueue.length });
       return;
     }
 
-    // Config
     if (urlPath === '/api/config' && method === 'GET') {
       json({
         poll_interval_seconds: POLL_INTERVAL,
         reply_template: REPLY_TEMPLATE,
-        keywords: KEYWORDS,
-        keyword_configs: CONFIG.keyword_configs || {},
-        post_keywords: POST_KEYWORDS,
-        follow_gate_enabled: FOLLOW_GATE_ENABLED,
-        follow_prompt: FOLLOW_PROMPT,
+        dm_message: DM_MESSAGE,
         rate_limit_per_hour: RATE_LIMIT_PER_HOUR,
         ig_username: IG_USERNAME,
         enforce_24h_window: ENFORCE_24H_WINDOW,
-        dm_keyword_enabled: DM_KEYWORD_ENABLED,
         window_expired_msg: CONFIG.window_expired_msg || '',
         followers_count: followersCache.ids.size,
         followers_last_refreshed: followersCache.lastRefreshed ? formatTime(followersCache.lastRefreshed) : null,
@@ -377,85 +282,37 @@ const server = http.createServer((req, res) => {
         const persist = {};
         if (data.poll_interval_seconds !== undefined) { POLL_INTERVAL = parseInt(data.poll_interval_seconds, 10); persist.poll_interval_seconds = POLL_INTERVAL; }
         if (data.reply_template !== undefined) { REPLY_TEMPLATE = data.reply_template; persist.reply_template = REPLY_TEMPLATE; }
-        if (data.follow_gate_enabled !== undefined) { FOLLOW_GATE_ENABLED = data.follow_gate_enabled === true; persist.follow_gate_enabled = FOLLOW_GATE_ENABLED; }
-        if (data.follow_prompt !== undefined) { FOLLOW_PROMPT = data.follow_prompt; persist.follow_prompt = FOLLOW_PROMPT; }
+        if (data.dm_message !== undefined) { DM_MESSAGE = data.dm_message; persist.dm_message = DM_MESSAGE; }
         if (data.rate_limit_per_hour !== undefined) { RATE_LIMIT_PER_HOUR = parseInt(data.rate_limit_per_hour, 10); persist.rate_limit_per_hour = RATE_LIMIT_PER_HOUR; }
         if (data.ig_username !== undefined) { IG_USERNAME = data.ig_username; persist.ig_username = IG_USERNAME; }
-        if (data.keywords !== undefined) { KEYWORDS = data.keywords; persist.keywords = KEYWORDS; }
-        if (data.keyword_configs !== undefined) { CONFIG.keyword_configs = data.keyword_configs; persist.keyword_configs = data.keyword_configs; }
-        if (data.post_keywords !== undefined) { POST_KEYWORDS = data.post_keywords; persist.post_keywords = POST_KEYWORDS; }
         if (data.enforce_24h_window !== undefined) { ENFORCE_24H_WINDOW = data.enforce_24h_window === true; persist.enforce_24h_window = ENFORCE_24H_WINDOW; }
-        if (data.dm_keyword_enabled !== undefined) { DM_KEYWORD_ENABLED = data.dm_keyword_enabled === true; persist.dm_keyword_enabled = DM_KEYWORD_ENABLED; }
         if (data.window_expired_msg !== undefined) { persist.window_expired_msg = data.window_expired_msg; }
         if (data.access_token !== undefined) { TOKEN = data.access_token; CONFIG.access_token = data.access_token; persist.access_token = data.access_token; }
         if (data.ig_token !== undefined) { IG_TOKEN = data.ig_token; CONFIG.ig_token = data.ig_token; persist.ig_token = data.ig_token; }
+        if (data.keyword_configs !== undefined) { CONFIG.keyword_configs = data.keyword_configs; persist.keyword_configs = data.keyword_configs; }
         try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); Object.assign(c, persist); fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
         json({ ok: true });
       });
       return;
     }
 
-    // Keywords
-    if (urlPath === '/api/keywords' && method === 'GET') { json({ keywords: KEYWORDS }); return; }
-    if (urlPath === '/api/keywords' && method === 'POST') {
-      body((data) => {
-        if (!data.keywords) { json({ error: 'Missing keywords' }, 400); return; }
-        KEYWORDS = data.keywords;
-        try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.keywords = KEYWORDS; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
-        json({ ok: true, count: Object.keys(KEYWORDS).length });
-      });
-      return;
-    }
-
-    // Posts
-    if (urlPath === '/api/posts' && method === 'GET') {
-      apiRequest(`/${IG_ID}/media?fields=id,caption,media_type,timestamp&limit=25`)
-        .then(p => json({ posts: p.data || [], assignments: POST_KEYWORDS }))
-        .catch(e => json({ error: e.message }, 500));
-      return;
-    }
-    if (urlPath === '/api/post-keywords' && method === 'POST') {
-      body((data) => {
-        if (!data.assignments) { json({ error: 'Missing assignments' }, 400); return; }
-        POST_KEYWORDS = data.assignments;
-        try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.post_keywords = POST_KEYWORDS; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
-        json({ ok: true });
-      });
-      return;
-    }
-
-    // Reply template
-    if (urlPath === '/api/reply-template' && method === 'POST') {
-      body((data) => {
-        if (!data.template) { json({ error: 'Missing template' }, 400); return; }
-        REPLY_TEMPLATE = data.template;
-        try { const c = JSON.parse(fs.readFileSync(configPath, 'utf8')); c.reply_template = REPLY_TEMPLATE; fs.writeFileSync(configPath, JSON.stringify(c, null, 2)); } catch(e) {}
-        json({ ok: true });
-      });
-      return;
-    }
-
-    // Inbox
     if (urlPath === '/api/inbox' && method === 'GET') {
       const items = loadProcessed();
-      const normalized = items.map(i => ({ id:i.id||'', username:i.username||'unknown', text:i.text||'', keyword:i.keyword||'?', mediaId:i.mediaId||'', type:i.type||'comment', replyOk:!!i.replyOk, dmOk:!!i.dmOk, fallback:!!i.fallback, followGate:!!i.followGate, windowBlocked:!!i.windowBlocked, skipped:!!i.skipped, ts:i.ts||0 }));
+      const normalized = items.map(i => ({ id:i.id||'', username:i.username||'unknown', text:i.text||'', mediaId:i.mediaId||'', type:i.type||'comment', replyOk:!!i.replyOk, dmOk:!!i.dmOk, followGate:!!i.followGate, windowBlocked:!!i.windowBlocked, ts:i.ts||0 }));
       json({ items: normalized });
       return;
     }
 
-    // Test trigger
     if (urlPath === '/api/test-trigger' && method === 'POST') {
       body((data) => {
-        const { keyword, username } = data;
-        if (!keyword || !KEYWORDS[keyword]) { json({ error: 'Keyword not found' }, 400); return; }
-        saveProcessed({ id:'test_'+Date.now(), username:username||'test_user', text:data.text||keyword, keyword, type:'test', replyOk:true, dmOk:false, fallback:true, ts:Date.now() });
-        stats.totalCommentsFound++; stats.totalCommentsProcessed++; stats.keywordsTriggered[keyword] = (stats.keywordsTriggered[keyword]||0)+1; stats.lastActivityTime=Date.now(); saveStats();
+        const { username } = data;
+        saveProcessed({ id:'test_'+Date.now(), username:username||'test_user', text:data.text||'test', type:'test', replyOk:true, dmOk:false, ts:Date.now() });
+        stats.totalCommentsFound++; stats.totalCommentsProcessed++; stats.lastActivityTime=Date.now(); saveStats();
         json({ ok: true });
       });
       return;
     }
 
-    // Users
     if (urlPath === '/api/users' && method === 'GET') {
       const items = loadProcessed();
       let userTags = {};
@@ -472,8 +329,8 @@ const server = http.createServer((req, res) => {
         const last = userItems.sort((a,b) => (b.ts||0) - (a.ts||0))[0];
         const isFollower = IG_USERNAME ? isFollowing('', name) : null;
         const dmsOk = userItems.filter(i => i.dmOk).length;
-        const dmsFail = userItems.filter(i => i.fallback || (i.type === 'comment' && !i.dmOk && !i.skipped)).length;
-        users.push({ username: name, tag, count, dmsOk, dmsFail, lastSeen: last?.ts||0, lastKeyword: last?.keyword||'', isFollower, lastType: last?.type||'' });
+        const dmsFail = userItems.filter(i => !i.dmOk && !i.followGate && !i.windowBlocked).length;
+        users.push({ username: name, tag, count, dmsOk, dmsFail, lastSeen: last?.ts||0, isFollower, lastType: last?.type||'' });
       }
       json({ users });
       return;
@@ -487,7 +344,6 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Contact profile
     if (urlPath.startsWith('/api/user/') && method === 'GET') {
       const username = decodeURIComponent(urlPath.replace('/api/user/', ''));
       const items = loadProcessed();
@@ -495,7 +351,6 @@ const server = http.createServer((req, res) => {
       let userTags = {};
       try { userTags = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch(e) {}
       const interactions = loadInteractions();
-      // Find IG user ID from processed items
       const userId = userItems.length > 0 ? (userItems[0].id?.split('_')[0] || '') : '';
       json({
         username,
@@ -503,38 +358,30 @@ const server = http.createServer((req, res) => {
         isFollower: IG_USERNAME ? isFollowing('', username) : null,
         totalTriggers: userItems.length,
         dmsOk: userItems.filter(i => i.dmOk).length,
-        dmsFailed: userItems.filter(i => i.fallback || (!i.dmOk && !i.skipped)).length,
+        dmsFailed: userItems.filter(i => !i.dmOk && !i.followGate && !i.windowBlocked).length,
         lastInteraction: interactions[userId] || null,
         lastInteractionStr: interactions[userId] ? formatTime(interactions[userId]) : null,
-        keywordsUsed: [...new Set(userItems.map(i => i.keyword).filter(Boolean))],
-        history: userItems.slice(0, 100).map(i => ({ id:i.id, text:i.text, keyword:i.keyword, type:i.type||'comment', replyOk:!!i.replyOk, dmOk:!!i.dmOk, fallback:!!i.fallback, followGate:!!i.followGate, windowBlocked:!!i.windowBlocked, skipped:!!i.skipped, ts:i.ts, timeStr: formatTime(i.ts) }))
+        history: userItems.slice(0, 100).map(i => ({ id:i.id, text:i.text, type:i.type||'comment', replyOk:!!i.replyOk, dmOk:!!i.dmOk, followGate:!!i.followGate, windowBlocked:!!i.windowBlocked, ts:i.ts, timeStr: formatTime(i.ts) }))
       });
       return;
     }
 
-    // Analytics
     if (urlPath === '/api/analytics' && method === 'GET') {
       const clicks = loadClicks();
       const items = loadProcessed();
       const totalSent = items.filter(i => i.dmOk).length;
-      const totalOpens = 0; // would need webhook for this
       const totalClicks = stats.totalClicks || 0;
       const uniqueClickers = new Set(clicks.map(c => c.username)).size;
-      const clicksByKeyword = {};
-      for (const c of clicks) { clicksByKeyword[c.keyword] = (clicksByKeyword[c.keyword]||0)+1; }
       json({
         totalSent,
-        totalOpens,
         totalClicks,
         uniqueClickers,
         clickRate: totalSent ? ((totalClicks / totalSent) * 100).toFixed(1) : '0.0',
-        clicksByKeyword,
         recentClicks: clicks.slice(-50).reverse().map(c => ({ ...c, timeStr: formatTime(c.ts) }))
       });
       return;
     }
 
-    // Followers
     if (urlPath === '/api/refresh-followers' && method === 'POST') {
       refreshFollowers().then(() => json({ ok: true, count: followersCache.ids.size })).catch(e => json({ error: e.message }, 500));
       return;
@@ -544,9 +391,8 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // Health
     if (urlPath === '/api/health' || urlPath === '/health') { json({ ok: true, uptime: getDuration(Date.now()-stats.startTime) }); return; }
-    if (urlPath === '/') { json({ ok: true, name: 'IG Auto-DM API' }); return; }
+    if (urlPath === '/') { json({ ok: true, name: 'IG Auto-DM' }); return; }
 
     json({ error: 'Not found' }, 404);
   } catch(e) {
@@ -559,12 +405,9 @@ server.listen(PORT, () => { console.log(`API server on port ${PORT}`); });
 
 loadStats();
 loadFollowersCache();
-loadProcessedDMs();
 (async () => {
   if (!TOKEN) await refreshToken();
-  const kwCount = Object.keys(KEYWORDS).length;
-  const postKwCount = Object.keys(POST_KEYWORDS).filter(k => POST_KEYWORDS[k]?.length).length;
-  console.log(`Bot ready: ${kwCount} keywords, ${postKwCount} posts with keyword mappings, IG_ID=${IG_ID ? 'set' : 'MISSING'}, TOKEN=${TOKEN ? 'set' : 'MISSING'}`);
+  console.log(`Bot ready: reply="${REPLY_TEMPLATE}", DM="${DM_MESSAGE.substring(0,40)}...", IG_ID=${IG_ID ? 'set' : 'MISSING'}, TOKEN=${TOKEN ? 'set' : 'MISSING'}`);
   setInterval(refreshToken, 20 * 24 * 60 * 60 * 1000);
   setInterval(() => run().catch(e => {}), POLL_INTERVAL * 1000);
   await run();

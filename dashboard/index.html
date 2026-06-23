@@ -127,7 +127,6 @@
 <div class="sidebar">
   <div class="brand">IG Auto-DM <small>v3</small></div>
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span> Dashboard</button>
-  <button class="nav-item" data-page="automation"><span class="icon">🎯</span> Automation</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span> Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span> Users</button>
   <button class="nav-item" data-page="analytics"><span class="icon">📈</span> Analytics</button>
@@ -141,20 +140,17 @@
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div id="dashError" style="display:none;"></div>
-  <div class="help"><strong>✅ Bot Active.</strong> Auto-replying to keyword comments + sending DMs.</div>
+  <div class="help"><strong>✅ Bot Active.</strong> Auto-replying to all comments + sending DMs to followers.</div>
   <div class="grid">
     <div class="card"><div class="lbl">Polls</div><div class="val bl" id="totalPolls">0</div></div>
-    <div class="card"><div class="lbl">Comments</div><div class="val" id="totalCommentsFound">0</div></div>
+    <div class="card"><div class="lbl">Comments Found</div><div class="val" id="totalCommentsFound">0</div></div>
     <div class="card"><div class="lbl">Processed</div><div class="val gr" id="totalCommentsProcessed">0</div></div>
     <div class="card"><div class="lbl">Replies</div><div class="val bl" id="totalRepliesSent">0</div></div>
     <div class="card"><div class="lbl">DMs Sent</div><div class="val gr" id="totalDMsent">0</div></div>
-    <div class="card"><div class="lbl">Fallbacks</div><div class="val yl" id="totalFallbackReplies">0</div></div>
     <div class="card"><div class="lbl">Errors</div><div class="val rd" id="totalErrors">0</div></div>
-    <div class="card"><div class="lbl">Gate Blocked</div><div class="val yl" id="totalFollowGateBlocked">0</div></div>
+    <div class="card"><div class="lbl">Non-Followers</div><div class="val yl" id="totalFollowGateBlocked">0</div></div>
     <div class="card"><div class="lbl">DM Queue</div><div class="val yl" id="dmQueueLength">0</div></div>
   </div>
-  <div class="section-label">⚡ Keyword Performance</div>
-  <div id="kwPerf"><div class="empty"><div class="icon">📊</div><p>No data yet.</p></div></div>
   <div class="section-label">📋 Activity</div>
   <div class="box">
     <div class="r"><span class="lbl">Last Poll</span><span class="val" id="lastPoll">--</span></div>
@@ -163,24 +159,15 @@
   </div>
 </div>
 
-<!-- AUTOMATION (Post-Specific — ManyChat-style) -->
-<div class="page" id="page-automation">
-  <div class="help">
-    <strong>🎯 Post Automation</strong> — Assign keywords to specific posts/reels.<br>
-    Each keyword <strong>only triggers</strong> on the post you assign it to. No global matching.
-  </div>
-  <div id="automationContent"><div class="empty"><div class="icon">🎯</div><p>Loading your posts...</p></div></div>
-</div>
-
 <!-- INBOX -->
 <div class="page" id="page-inbox">
-  <div class="help"><strong>📨 Inbox:</strong> Every keyword trigger logged here.</div>
+  <div class="help"><strong>📨 Inbox:</strong> Every comment processed logged here.</div>
   <div id="inboxContent"><div class="empty"><div class="icon">📭</div><p>No activity yet.</p></div></div>
 </div>
 
 <!-- USERS -->
 <div class="page" id="page-users">
-  <div class="help"><strong>👥 Users:</strong> Everyone who triggered a keyword. Add tags/labels to organize them. Click username for profile.</div>
+  <div class="help"><strong>👥 Users:</strong> Everyone who commented. Add tags/labels to organize them. Click username for profile.</div>
   <div id="usersContent"><div class="empty"><div class="icon">👥</div><p>Loading...</p></div></div>
 </div>
 
@@ -201,27 +188,23 @@
 
 <!-- SETTINGS -->
 <div class="page" id="page-settings">
-  <div class="section-label">Reply Comment Template</div>
+  <div class="section-label">Public Reply (when someone comments)</div>
   <div class="box" style="margin-bottom:12px;">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Public reply when someone comments a keyword (use <span class="code">{keyword}</span>)</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">This is replied publicly to every comment.</div>
     <div class="flex"><input id="replyTemplateInput" value="Check your DM ✅ Thanks for commenting!" style="font-size:12px;"><button class="btn btn-p btn-s" onclick="saveReplyTemplate()">Save</button></div>
   </div>
-  <div class="section-label">Follow Gate</div>
+
+  <div class="section-label">Direct Message (sent to followers who comment)</div>
   <div class="box" style="margin-bottom:12px;">
-    <div class="r" style="margin-bottom:6px;">
-      <span class="lbl">Require follow before DM</span>
-      <button class="btn btn-s" id="followGateToggle" onclick="toggleFollowGate()" style="min-width:60px;">Loading...</button>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
-      When ON: non-followers get a public reply asking them to follow. Only followers get the DM.
-    </div>
-    <div class="f" style="margin-top:4px;">
-      <label>Follow prompt (public reply to non-followers)</label>
-      <input id="followPromptInput" value="Follow @{ig_username} and comment {keyword} again to get the link! 🔗" style="font-size:11px;padding:6px 8px;">
-    </div>
-    <div class="flex gap-2" style="margin-top:6px;">
-      <button class="btn btn-s btn-p" onclick="saveFollowGate()">Save Follow Gate</button>
-      <button class="btn btn-s btn-g" onclick="refreshFollowers()" id="refreshFollowerBtn">Refresh Followers</button>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">This is sent privately. URLs are auto-tracked for click analytics.</div>
+    <div class="flex" style="gap:4px;"><input id="dmMessageInput" value="Here is the link you requested!" style="font-size:12px;"><button class="btn btn-p btn-s" onclick="saveDmMessage()">Save</button></div>
+  </div>
+
+  <div class="section-label">Followers</div>
+  <div class="box" style="margin-bottom:12px;">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Only followers get DMs. Non-followers are silently skipped.</div>
+    <div class="flex gap-2">
+      <button class="btn btn-s btn-p" onclick="refreshFollowers()" id="refreshFollowerBtn">Refresh Followers</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px;">
       Followers cached: <span id="sFollowerCount">0</span> | Last refresh: <span id="sFollowerRefresh">--</span>
@@ -233,43 +216,29 @@
     <div class="flex gap-2" style="flex-wrap:wrap;margin-bottom:6px;">
       <div style="flex:1;min-width:100px;">
         <label style="font-size:11px;color:var(--muted);">Poll interval (seconds)</label>
-        <input id="sPollInterval" type="number" value="30" style="font-size:12px;padding:5px 8px;">
+        <input id="sPollInterval" type="number" value="15" style="font-size:12px;padding:5px 8px;">
       </div>
       <div style="flex:1;min-width:100px;">
         <label style="font-size:11px;color:var(--muted);">DMs per hour (max)</label>
         <input id="sRateLimit" type="number" value="150" style="font-size:12px;padding:5px 8px;">
       </div>
       <div style="flex:1;min-width:100px;">
-        <label style="font-size:11px;color:var(--muted);">IG Username (for follow prompt)</label>
+        <label style="font-size:11px;color:var(--muted);">IG Username</label>
         <input id="sIgUsername" value="" placeholder="your_handle" style="font-size:12px;padding:5px 8px;">
       </div>
     </div>
-    <button class="btn btn-s btn-p" onclick="saveTimingConfig()">Save Settings</button>
-  </div>
-
-  <div class="section-label">DM & Messaging</div>
-  <div class="box" style="margin-bottom:12px;">
     <div class="r" style="margin-bottom:6px;">
       <span class="lbl">Enforce 24-hour window</span>
       <button class="btn btn-s" id="enforceWindowToggle" onclick="toggleEnforceWindow()" style="min-width:60px;">Loading...</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
-      When ON: users can only receive DMs within 24h of their last interaction.
-    </div>
-    <div class="r" style="margin-bottom:6px;">
-      <span class="lbl">Inbound DM keyword trigger</span>
-      <button class="btn btn-s" id="dmKeywordToggle" onclick="toggleDmKeyword()" style="min-width:60px;">Loading...</button>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
-      When ON: bot also replies to keywords sent via DM (not just public comments).
+      When ON: each user only gets DMs once per 24h.
     </div>
     <div class="f" style="margin-top:4px;">
       <label>24h window expired message</label>
       <textarea id="windowExpiredMsgInput" rows="2" style="font-size:11px;" placeholder="Message users see when 24h window has expired..."></textarea>
     </div>
-    <div class="flex gap-2" style="margin-top:6px;">
-      <button class="btn btn-s btn-p" onclick="saveDmSettings()">Save DM Settings</button>
-    </div>
+    <button class="btn btn-s btn-p" style="margin-top:6px;" onclick="saveSettings()">Save All Settings</button>
   </div>
 
   <div class="section-label">Bot Status</div>
@@ -282,8 +251,8 @@
   <div class="section-label">Backend</div>
   <div class="box">
     <div class="r"><span class="lbl">Railway API</span><span class="val" style="font-size:10px;word-break:break-all;" id="sBackend">--</span></div>
-    <div class="r"><span class="lbl">Keywords</span><span class="val" id="sKwCount">--</span></div>
-    <div class="r"><span class="lbl">Follow Gate</span><span class="val" id="sFollowGateStatus">OFF</span></div>
+    <div class="r"><span class="lbl">Reply Template</span><span class="val" id="sReplyPreview">--</span></div>
+    <div class="r"><span class="lbl">DM Message</span><span class="val" id="sDmMessagePreview">--</span></div>
   </div>
 </div>
 
@@ -292,22 +261,10 @@
 <!-- Bottom Nav -->
 <div class="bottom-nav">
   <button class="nav-item active" data-page="dashboard"><span class="icon">📊</span>Home</button>
-  <button class="nav-item" data-page="automation"><span class="icon">🎯</span>Auto</button>
   <button class="nav-item" data-page="inbox"><span class="icon">📨</span>Inbox</button>
   <button class="nav-item" data-page="users"><span class="icon">👥</span>Users</button>
   <button class="nav-item" data-page="analytics"><span class="icon">📈</span>Analytics</button>
   <button class="nav-item" data-page="settings"><span class="icon">⚙️</span>Set</button>
-</div>
-
-<!-- Keyword Modal (per-post context) -->
-<div class="modal-overlay" id="kwModal">
-  <div class="modal">
-    <h3 id="modalTitle">Add Keyword to Post</h3>
-    <div class="f"><label>Keyword (what users comment)</label><input id="kwKey" placeholder="e.g. PORTFOLIO" maxlength="30" style="text-transform:uppercase;" autocomplete="off"></div>
-    <div class="f"><label>DM Response (what bot sends privately)</label><textarea id="kwVal" rows="3" placeholder="Hey! Here's the link: https://..."></textarea></div>
-    <div class="f"><label>Media URL (optional — image to attach to DM)</label><input id="kwMediaUrl" placeholder="https://...image.jpg" autocomplete="off"></div>
-    <div class="actions"><button class="btn btn-g" onclick="closeKwModal()">Cancel</button><button class="btn btn-p" onclick="saveKw()">Save</button></div>
-  </div>
 </div>
 
 <!-- Contact Profile Modal -->
@@ -325,11 +282,6 @@
 
 <script>
 const API_BASE = 'https://uiux-production-2f71.up.railway.app';
-let KW = {};
-let editKwKey = null;
-let editKwMediaId = null;
-let KEYWORD_CONFIGS = {};
-let POST_ASSIGNMENTS = {};
 
 function toast(m,t){const e=document.createElement('div');e.className='toast '+(t||'ok');e.textContent=m;document.getElementById('toastCont').appendChild(e);setTimeout(()=>e.remove(),3000);}
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -339,7 +291,6 @@ document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('page-'+el.dataset.page).classList.add('active');
-  if(el.dataset.page==='automation') loadAutomation();
   if(el.dataset.page==='inbox') loadInbox();
   if(el.dataset.page==='users') loadUsers();
   if(el.dataset.page==='analytics') loadAnalytics();
@@ -361,24 +312,16 @@ function showDashError(msg){
   el.innerHTML='<strong>⚠️ Backend Error:</strong> '+esc(msg);
 }
 
-// ─── DASHBOARD ───
 async function refreshDash(){
   try{
     const d=await api('/api/stats');
     document.getElementById('dashError').style.display='none';
-    ['totalPolls','totalCommentsFound','totalCommentsProcessed','totalRepliesSent','totalDMsent','totalFallbackReplies','totalErrors','totalFollowGateBlocked','dmQueueLength'].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=d[k]||0});
+    ['totalPolls','totalCommentsFound','totalCommentsProcessed','totalRepliesSent','totalDMsent','totalErrors','totalFollowGateBlocked','dmQueueLength'].forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=d[k]||0});
     const u=d.uptimeStr||'--'; document.getElementById('tbUptime').textContent=u; document.getElementById('sbUptime').textContent='Uptime: '+u; document.getElementById('sbPolls').textContent='Polls: '+(d.totalPolls||0);
     document.getElementById('lastPoll').textContent=d.lastPollStr||'--'; document.getElementById('lastActivity').textContent=d.lastActivityStr||'--';
     if(d.lastError){document.getElementById('lastErrorR').style.display='flex';document.getElementById('lastError').textContent=d.lastError;}
     else{document.getElementById('lastErrorR').style.display='none';}
     document.querySelectorAll('.status .dot').forEach(dot=>{dot.className='dot'+(d.totalPolls>0?'':' red')});
-    const kp=document.getElementById('kwPerf'),keys=Object.keys(d.keywordsTriggered);
-    if(!keys.length){kp.innerHTML='<div class="empty"><div class="icon">📊</div><p>No keywords triggered yet.</p></div>';return;}
-    const mv=Math.max(...keys.map(k=>d.keywordsTriggered[k]),1);
-    let h='<table><tr><th>Keyword</th><th>Count</th><th></th></tr>';
-    for(const k of keys.sort((a,b)=>d.keywordsTriggered[b]-d.keywordsTriggered[a]))
-      h+='<tr><td><span class="kw">'+esc(k)+'</span></td><td>'+d.keywordsTriggered[k]+'</td><td><div class="bar-bg"><div class="bar-fill" style="width:'+(d.keywordsTriggered[k]/mv*100).toFixed(0)+'%"></div></div></td></tr>';
-    h+='</table>'; kp.innerHTML=h;
   }catch(e){
     showDashError(e.message);
     document.getElementById('sbUptime').textContent='Offline';
@@ -388,160 +331,6 @@ async function refreshDash(){
 }
 refreshDash(); setInterval(refreshDash,8000);
 
-// ─── AUTOMATION (Post-Centric) ───
-async function loadAutomation(){
-  try{
-    const d=await api('/api/posts');
-    const posts=d.posts||[];
-    POST_ASSIGNMENTS=d.assignments||{};
-    // Also load KW dict and keyword_configs for DM responses
-    const kwData=await api('/api/keywords');
-    KW=kwData.keywords||{};
-    const cfgData=await api('/api/config');
-    KEYWORD_CONFIGS=cfgData.keyword_configs||{};
-
-    const div=document.getElementById('automationContent');
-    if(!posts.length){div.innerHTML='<div class="empty"><div class="icon">📷</div><p>No posts found. Make sure your account has posts.</p></div>';return;}
-
-    let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-      +'<span style="font-size:12px;color:var(--muted);">'+posts.length+' posts &mdash; click to expand</span>'
-      +'</div>';
-
-    for(const p of posts){
-      const caption=(p.caption||'No caption').substring(0,100);
-      const mediaType=p.media_type||'IMAGE';
-      const typeIcon=mediaType==='VIDEO'?'🎬':mediaType==='CAROUSEL_ALBUM'?'📺':'📷';
-      const assigned=POST_ASSIGNMENTS[p.id]||[];
-      const postId=p.id;
-
-      h+='<div class="auto-post">'
-        +'<div class="post-head" onclick="togglePostBody(\''+postId+'\')">'
-        +'<div class="type-badge">'+typeIcon+'</div>'
-        +'<div class="post-info">'
-        +'<div class="caption">'+esc(caption)+'</div>'
-        +'<div class="meta">'
-        +'<span>'+new Date(p.timestamp).toLocaleDateString()+'</span>'
-        +'<span class="code">'+postId.substring(0,8)+'</span>'
-        +'<span class="kw-count">'+(assigned.length||'No')+' keywords</span>'
-        +'</div></div>'
-        +'<div class="post-arrow" id="arrow-'+postId+'">▾</div>'
-        +'</div>'
-        +'<div class="post-body" id="body-'+postId+'" style="display:none;">';
-
-      if(!assigned.length){
-        h+='<div class="no-kws">No keywords assigned. Add one below.</div>';
-      }else{
-        for(const kw of assigned){
-          const dmMsg=KW[kw]||'';
-          h+='<div class="kw-card">'
-            +'<span class="kw">'+esc(kw)+'</span>'
-            +'<span class="dm-preview" title="'+esc(dmMsg)+'">'+esc(dmMsg.substring(0,60))+(dmMsg.length>60?'...':'')+'</span>'
-            +'<div class="kw-actions">'
-            +'<button class="btn btn-s btn-g" onclick="event.stopPropagation();editPostKw(\''+postId+'\',\''+kw+'\')">Edit</button>'
-            +'<button class="btn btn-s btn-d" onclick="event.stopPropagation();removePostKw(\''+postId+'\',\''+kw+'\')">Del</button>'
-            +'</div></div>';
-        }
-      }
-
-      h+='<div class="add-kw-area">'
-        +'<button class="btn btn-s btn-p w-full" onclick="event.stopPropagation();addPostKw(\''+postId+'\')">+ Add Keyword</button>'
-        +'</div>'
-        +'</div></div>';
-    }
-    div.innerHTML=h;
-  }catch(e){
-    document.getElementById('automationContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';
-  }
-}
-
-function togglePostBody(postId){
-  const body=document.getElementById('body-'+postId);
-  const arrow=document.getElementById('arrow-'+postId);
-  const isOpen=body.style.display!=='none';
-  body.style.display=isOpen?'none':'block';
-  arrow.classList.toggle('open',!isOpen);
-}
-
-function addPostKw(mediaId){
-  editKwMediaId=mediaId;
-  editKwKey=null;
-  document.getElementById('modalTitle').textContent='Add Keyword to Post';
-  document.getElementById('kwKey').value='';
-  document.getElementById('kwKey').disabled=false;
-  document.getElementById('kwVal').value='';
-  document.getElementById('kwMediaUrl').value='';
-  document.getElementById('kwModal').classList.add('open');
-}
-
-function editPostKw(mediaId,keyword){
-  editKwMediaId=mediaId;
-  editKwKey=keyword;
-  document.getElementById('modalTitle').textContent='Edit Keyword';
-  document.getElementById('kwKey').value=keyword;
-  document.getElementById('kwKey').disabled=true;
-  document.getElementById('kwVal').value=KW[keyword]||'';
-  document.getElementById('kwMediaUrl').value=KEYWORD_CONFIGS[keyword]?.media_url||'';
-  document.getElementById('kwModal').classList.add('open');
-}
-
-function closeKwModal(){document.getElementById('kwModal').classList.remove('open');}
-
-function saveKw(){
-  const key=document.getElementById('kwKey').value.trim().toUpperCase();
-  const val=document.getElementById('kwVal').value.trim();
-  const mediaUrl=document.getElementById('kwMediaUrl').value.trim();
-  if(!key||!val){toast('Fill keyword and DM response','err');return;}
-  if(!editKwMediaId){toast('No post selected','err');return;}
-
-  // Save to global keyword response dict
-  KW[key]=val;
-
-  // Save media URL config
-  if(mediaUrl){
-    KEYWORD_CONFIGS[key]=KEYWORD_CONFIGS[key]||{};
-    KEYWORD_CONFIGS[key].media_url=mediaUrl;
-  }else if(KEYWORD_CONFIGS[key]&&KEYWORD_CONFIGS[key].media_url){
-    delete KEYWORD_CONFIGS[key].media_url;
-    if(!Object.keys(KEYWORD_CONFIGS[key]).length) delete KEYWORD_CONFIGS[key];
-  }
-
-  // Add to post assignment
-  if(!POST_ASSIGNMENTS[editKwMediaId]) POST_ASSIGNMENTS[editKwMediaId]=[];
-  if(!POST_ASSIGNMENTS[editKwMediaId].includes(key)){
-    POST_ASSIGNMENTS[editKwMediaId].push(key);
-  }
-
-  closeKwModal();
-  toast('Keyword saved to post!');
-  saveAllAutomation();
-}
-
-async function removePostKw(mediaId,keyword){
-  if(!confirm('Remove "'+keyword+'" from this post?')) return;
-  if(POST_ASSIGNMENTS[mediaId]){
-    POST_ASSIGNMENTS[mediaId]=POST_ASSIGNMENTS[mediaId].filter(k=>k!==keyword);
-    if(!POST_ASSIGNMENTS[mediaId].length) delete POST_ASSIGNMENTS[mediaId];
-  }
-  toast('Keyword removed from post.');
-  saveAllAutomation();
-}
-
-async function saveAllAutomation(){
-  try{
-    // Save post-keyword assignments
-    await api('/api/post-keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignments:POST_ASSIGNMENTS})});
-    // Save keyword DM responses
-    await api('/api/keywords',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:KW})});
-    // Save keyword configs (media URLs)
-    if(Object.keys(KEYWORD_CONFIGS).length){
-      await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword_configs:KEYWORD_CONFIGS})});
-    }
-    // Reload page
-    loadAutomation();
-  }catch(e){toast('Failed to save: '+e.message,'err');}
-}
-
-// ─── INBOX ───
 async function loadInbox(){
   try{
     const d=await api('/api/inbox');
@@ -550,27 +339,21 @@ async function loadInbox(){
     let h='';
     for(const item of d.items.slice().reverse()){
       const t=item.ts?new Date(item.ts).toLocaleString():'--';
-      const skipped=item.skipped;
-      let typeBadge='';
-      if(item.type==='inbound_dm') typeBadge='<span class="chip chip-done">📩 DM</span>';
-      else if(item.type==='test') typeBadge='<span class="chip chip-warn">🧪 Test</span>';
-      h+='<div class="inbox-item" style="'+(skipped?'opacity:0.5;':'')+'">'
+      h+='<div class="inbox-item">'
         +'<div class="head"><span class="user">@'+(item.username||'unknown')+'</span><span class="time">'+t+'</span></div>'
-        +'<div class="comment">"'+esc(item.text||'')+'" &rarr; <span class="kw">'+(item.keyword||'?')+'</span> '+typeBadge+'</div>'
+        +'<div class="comment">"'+esc(item.text||'')+'"</div>'
         +'<div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Post: <span class="code">'+(item.mediaId||'?')+'</span></div>'
         +'<div class="status">'
         +(item.windowBlocked?'<span class="chip chip-warn">⏰ 24h Expired</span>':'')
-        +(skipped?'<span class="chip chip-warn">⏭ Skipped</span>'
-          :item.followGate?'<span class="chip chip-warn">🚫 Follow Gate</span>'
+        +(item.followGate?'<span class="chip chip-warn">🚫 Not Following</span>'
           :'<span class="chip '+(item.replyOk?'chip-done':'chip-fail')+'">Reply '+(item.replyOk?'✅':'❌')+'</span>'
-          +'<span class="chip '+(item.dmOk?'chip-done':item.fallback?'chip-warn':'chip-fail')+'">DM '+(item.dmOk?'✅':item.fallback?'⚠️ Fallback':'❌')+'</span>')
+          +'<span class="chip '+(item.dmOk?'chip-done':'chip-fail')+'">DM '+(item.dmOk?'✅':'❌')+'</span>')
         +'</div></div>';
     }
     div.innerHTML=h;
   }catch(e){document.getElementById('inboxContent').innerHTML='<div class="empty"><div class="icon">⚠️</div><p>Failed: '+esc(e.message)+'</p></div>';}
 }
 
-// ─── USERS ───
 let USERS = [];
 let USER_TAGS = {};
 async function loadUsers(){
@@ -584,7 +367,7 @@ async function loadUsers(){
 }
 function renderUsers(){
   const div=document.getElementById('usersContent');
-  if(!USERS.length){div.innerHTML='<div class="empty"><div class="icon">👥</div><p>No users yet. When people comment keywords, they appear here.</p></div>';return;}
+  if(!USERS.length){div.innerHTML='<div class="empty"><div class="icon">👥</div><p>No users yet. Comments will appear here.</p></div>';return;}
   let h='<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">'+USERS.length+' total users &mdash; click username for profile</div>';
   for(const u of USERS){
     const tag=USER_TAGS[u.username]||'';
@@ -604,7 +387,6 @@ async function saveUserTags(){
   try{await api('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags:USER_TAGS})});toast('User tags saved!');}catch(e){toast('Failed: '+e.message,'err');}
 }
 
-// ─── CONTACT PROFILE ───
 async function openContactProfile(username){
   document.getElementById('profileModal').classList.add('open');
   document.getElementById('profileTitle').textContent='@'+username;
@@ -612,27 +394,22 @@ async function openContactProfile(username){
   try{
     const d=await api('/api/user/'+encodeURIComponent(username));
     let h='<div class="grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px;">'
-      +'<div class="card"><div class="lbl">Triggers</div><div class="val bl">'+d.totalTriggers+'</div></div>'
+      +'<div class="card"><div class="lbl">Comments</div><div class="val bl">'+d.totalTriggers+'</div></div>'
       +'<div class="card"><div class="lbl">DMs OK</div><div class="val gr">'+d.dmsOk+'</div></div>'
       +'<div class="card"><div class="lbl">Failed</div><div class="val rd">'+d.dmsFailed+'</div></div>'
       +'</div>';
     if(d.isFollower!==null) h+='<div style="font-size:12px;margin-bottom:6px;">Follower: '+(d.isFollower?'<span class="chip chip-done">✅ Yes</span>':'<span class="chip chip-fail">❌ No</span>')+'</div>';
-    h+='<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Keywords used: '+(d.keywordsUsed||[]).map(k=>'<span class="kw">'+esc(k)+'</span>').join(' ')+'</div>';
     h+='<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Tag: '+(d.tag||'<em>none</em>')+'</div>';
     h+='<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Last interaction: '+(d.lastInteractionStr||'Never')+'</div>';
     h+='<div class="section-label">History</div>';
     for(const item of (d.history||[])){
       const timeStr=item.timeStr||'--';
       h+='<div class="inbox-item" style="padding:8px 10px;">'
-        +'<div class="head"><span class="kw">'+esc(item.keyword||'')+'</span><span class="time">'+timeStr+'</span></div>'
         +'<div style="font-size:11px;color:#bbb;">'+esc(item.text||'')+'</div>'
         +'<div class="status">'
-        +(item.type==='inbound_dm'?'<span class="chip chip-done">📩 DM</span>':'')
         +(item.dmOk?'<span class="chip chip-done">DM ✅</span>':'')
-        +(item.fallback?'<span class="chip chip-warn">Fallback</span>':'')
         +(item.windowBlocked?'<span class="chip chip-warn">⏰ 24h</span>':'')
-        +(item.followGate?'<span class="chip chip-warn">🚫 Follow Gate</span>':'')
-        +(item.skipped?'<span class="chip chip-warn">⏭ Skipped</span>':'')
+        +(item.followGate?'<span class="chip chip-warn">🚫 Not Following</span>':'')
         +'</div></div>';
     }
     document.getElementById('profileContent').innerHTML=h;
@@ -642,7 +419,6 @@ async function openContactProfile(username){
 }
 function closeProfileModal(){document.getElementById('profileModal').classList.remove('open');}
 
-// ─── ANALYTICS ───
 async function loadAnalytics(){
   try{
     const d=await api('/api/analytics');
@@ -650,58 +426,39 @@ async function loadAnalytics(){
     document.getElementById('anaTotalClicks').textContent=d.totalClicks||0;
     document.getElementById('anaUniqueClickers').textContent=d.uniqueClickers||0;
     document.getElementById('anaClickRate').textContent=(d.clickRate||'0.0')+'%';
-
-    const keys=Object.keys(d.clicksByKeyword||{});
-    let kh='';
-    if(!keys.length){
-      kh='<div class="empty"><p>No clicks recorded yet.</p></div>';
-    }else{
-      kh='<table><tr><th>Keyword</th><th>Clicks</th></tr>';
-      for(const k of keys.sort((a,b)=>d.clicksByKeyword[b]-d.clicksByKeyword[a]))
-        kh+='<tr><td><span class="kw">'+esc(k)+'</span></td><td>'+d.clicksByKeyword[k]+'</td></tr>';
-      kh+='</table>';
-    }
-    document.getElementById('anaClicksByKw').innerHTML=kh;
-
     const clicks=d.recentClicks||[];
     let ch='';
     if(!clicks.length){
-      ch='<div class="empty"><p>No recent clicks.</p></div>';
+      ch='<div class="empty"><p>No clicks yet.</p></div>';
     }else{
-      ch='<table><tr><th>User</th><th>Keyword</th><th>Time</th></tr>';
+      ch='<table><tr><th>User</th><th>Time</th></tr>';
       for(const c of clicks)
-        ch+='<tr><td>@'+esc(c.username||'')+'</td><td><span class="kw">'+esc(c.keyword||'')+'</span></td><td style="font-size:10px;color:var(--muted);">'+esc(c.timeStr||'')+'</td></tr>';
+        ch+='<tr><td>@'+esc(c.username||'')+'</td><td style="font-size:10px;color:var(--muted);">'+esc(c.timeStr||'')+'</td></tr>';
       ch+='</table>';
     }
     document.getElementById('anaRecentClicks').innerHTML=ch;
   }catch(e){
-    document.getElementById('anaClicksByKw').innerHTML='<div class="empty"><p>Error: '+esc(e.message)+'</p></div>';
-    document.getElementById('anaRecentClicks').innerHTML='';
+    document.getElementById('anaRecentClicks').innerHTML='<div class="empty"><p>Error loading</p></div>';
   }
 }
 
-// ─── SETTINGS ───
 let CONFIG_DATA = {};
 async function loadConfig(){
   try{
     CONFIG_DATA=await api('/api/config');
-    document.getElementById('followGateToggle').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
-    document.getElementById('followGateToggle').className='btn btn-s '+(CONFIG_DATA.follow_gate_enabled?'btn-p':'btn-g');
-    document.getElementById('followPromptInput').value=CONFIG_DATA.follow_prompt||'';
-    document.getElementById('sPollInterval').value=CONFIG_DATA.poll_interval_seconds||30;
+    document.getElementById('sPollInterval').value=CONFIG_DATA.poll_interval_seconds||15;
     document.getElementById('sRateLimit').value=CONFIG_DATA.rate_limit_per_hour||150;
     document.getElementById('sIgUsername').value=CONFIG_DATA.ig_username||'';
     document.getElementById('replyTemplateInput').value=CONFIG_DATA.reply_template||'';
+    document.getElementById('dmMessageInput').value=CONFIG_DATA.dm_message||'';
     document.getElementById('sFollowerCount').textContent=CONFIG_DATA.followers_count||0;
     document.getElementById('sFollowerRefresh').textContent=CONFIG_DATA.followers_last_refreshed||'--';
-    document.getElementById('sFollowGateStatus').textContent=CONFIG_DATA.follow_gate_enabled?'ON ✅':'OFF';
     document.getElementById('sDmQueue').textContent=CONFIG_DATA.dm_queue_length||0;
     document.getElementById('enforceWindowToggle').textContent=CONFIG_DATA.enforce_24h_window?'ON ✅':'OFF';
     document.getElementById('enforceWindowToggle').className='btn btn-s '+(CONFIG_DATA.enforce_24h_window?'btn-p':'btn-g');
-    document.getElementById('dmKeywordToggle').textContent=CONFIG_DATA.dm_keyword_enabled?'ON ✅':'OFF';
-    document.getElementById('dmKeywordToggle').className='btn btn-s '+(CONFIG_DATA.dm_keyword_enabled?'btn-p':'btn-g');
     document.getElementById('windowExpiredMsgInput').value=CONFIG_DATA.window_expired_msg||'';
-    KEYWORD_CONFIGS=CONFIG_DATA.keyword_configs||{};
+    document.getElementById('sReplyPreview').textContent=(CONFIG_DATA.reply_template||'').substring(0,30)+'...';
+    document.getElementById('sDmMessagePreview').textContent=(CONFIG_DATA.dm_message||'').substring(0,30)+'...';
   }catch(e){}
 }
 async function refreshSet(){
@@ -711,7 +468,6 @@ async function refreshSet(){
     document.getElementById('sUptime').textContent=d.uptimeStr||'--';
     document.getElementById('sStart').textContent=d.startTime?new Date(d.startTime).toLocaleString():'--';
     document.getElementById('sBackend').textContent=API_BASE;
-    document.getElementById('sKwCount').textContent=Object.keys(KW).length;
     document.getElementById('sDmQueue').textContent=d.dmQueueLength||0;
   }catch(e){document.getElementById('sStatus').innerHTML='<span class="chip chip-fail">● Offline</span>';}
 }
@@ -719,26 +475,12 @@ setInterval(refreshSet,10000); refreshSet();
 async function saveReplyTemplate(){
   const val=document.getElementById('replyTemplateInput').value.trim();
   if(!val){toast('Enter a template','err');return;}
-  try{await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply_template:val})});toast('Reply template saved!');CONFIG_DATA.reply_template=val;}catch(e){toast('Failed: '+e.message,'err');}
+  try{await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply_template:val})});toast('Reply template saved!');CONFIG_DATA.reply_template=val;document.getElementById('sReplyPreview').textContent=val.substring(0,30)+'...';}catch(e){toast('Failed: '+e.message,'err');}
 }
-async function toggleFollowGate(){
-  const newVal=!CONFIG_DATA.follow_gate_enabled;
-  try{
-    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({follow_gate_enabled:newVal})});
-    CONFIG_DATA.follow_gate_enabled=newVal;
-    document.getElementById('followGateToggle').textContent=newVal?'ON ✅':'OFF';
-    document.getElementById('followGateToggle').className='btn btn-s '+(newVal?'btn-p':'btn-g');
-    document.getElementById('sFollowGateStatus').textContent=newVal?'ON ✅':'OFF';
-    toast('Follow gate '+(newVal?'enabled':'disabled'));
-  }catch(e){toast('Failed: '+e.message,'err');}
-}
-async function saveFollowGate(){
-  const prompt=document.getElementById('followPromptInput').value.trim();
-  if(!prompt){toast('Enter a follow prompt','err');return;}
-  try{
-    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({follow_prompt:prompt,follow_gate_enabled:CONFIG_DATA.follow_gate_enabled})});
-    CONFIG_DATA.follow_prompt=prompt; toast('Follow gate saved!');
-  }catch(e){toast('Failed: '+e.message,'err');}
+async function saveDmMessage(){
+  const val=document.getElementById('dmMessageInput').value.trim();
+  if(!val){toast('Enter a DM message','err');return;}
+  try{await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dm_message:val})});toast('DM message saved!');CONFIG_DATA.dm_message=val;document.getElementById('sDmMessagePreview').textContent=val.substring(0,30)+'...';}catch(e){toast('Failed: '+e.message,'err');}
 }
 async function refreshFollowers(){
   const btn=document.getElementById('refreshFollowerBtn'); const orig=btn.textContent;
@@ -751,16 +493,6 @@ async function refreshFollowers(){
   }catch(e){toast('Failed: '+e.message,'err');}
   btn.textContent=orig; btn.disabled=false;
 }
-async function saveTimingConfig(){
-  const poll=parseInt(document.getElementById('sPollInterval').value)||30;
-  const rate=parseInt(document.getElementById('sRateLimit').value)||150;
-  const user=document.getElementById('sIgUsername').value.trim();
-  try{
-    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({poll_interval_seconds:poll,rate_limit_per_hour:rate,ig_username:user})});
-    CONFIG_DATA.poll_interval_seconds=poll; CONFIG_DATA.rate_limit_per_hour=rate; CONFIG_DATA.ig_username=user;
-    toast('Settings saved! (poll interval takes effect on restart)');
-  }catch(e){toast('Failed: '+e.message,'err');}
-}
 async function toggleEnforceWindow(){
   const newVal=!CONFIG_DATA.enforce_24h_window;
   try{
@@ -771,27 +503,25 @@ async function toggleEnforceWindow(){
     toast('24h window '+(newVal?'enabled':'disabled'));
   }catch(e){toast('Failed: '+e.message,'err');}
 }
-async function toggleDmKeyword(){
-  const newVal=!CONFIG_DATA.dm_keyword_enabled;
+async function saveSettings(){
+  const poll=parseInt(document.getElementById('sPollInterval').value)||15;
+  const rate=parseInt(document.getElementById('sRateLimit').value)||150;
+  const user=document.getElementById('sIgUsername').value.trim();
+  const reply=document.getElementById('replyTemplateInput').value.trim();
+  const dmMsg=document.getElementById('dmMessageInput').value.trim();
+  const winMsg=document.getElementById('windowExpiredMsgInput').value.trim();
   try{
-    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dm_keyword_enabled:newVal})});
-    CONFIG_DATA.dm_keyword_enabled=newVal;
-    document.getElementById('dmKeywordToggle').textContent=newVal?'ON ✅':'OFF';
-    document.getElementById('dmKeywordToggle').className='btn btn-s '+(newVal?'btn-p':'btn-g');
-    toast('DM keyword trigger '+(newVal?'enabled':'disabled'));
-  }catch(e){toast('Failed: '+e.message,'err');}
-}
-async function saveDmSettings(){
-  const msg=document.getElementById('windowExpiredMsgInput').value.trim();
-  try{
-    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({window_expired_msg:msg,enforce_24h_window:CONFIG_DATA.enforce_24h_window,dm_keyword_enabled:CONFIG_DATA.dm_keyword_enabled})});
-    CONFIG_DATA.window_expired_msg=msg;
-    toast('DM settings saved!');
+    await api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      poll_interval_seconds:poll, rate_limit_per_hour:rate, ig_username:user,
+      reply_template:reply, dm_message:dmMsg, window_expired_msg:winMsg,
+      enforce_24h_window:CONFIG_DATA.enforce_24h_window
+    })});
+    CONFIG_DATA.poll_interval_seconds=poll; CONFIG_DATA.rate_limit_per_hour=rate; CONFIG_DATA.ig_username=user;
+    CONFIG_DATA.reply_template=reply; CONFIG_DATA.dm_message=dmMsg; CONFIG_DATA.window_expired_msg=winMsg;
+    toast('All settings saved!');
   }catch(e){toast('Failed: '+e.message,'err');}
 }
 
-// Initial loads
-loadAutomation();
 loadConfig();
 </script>
 </body>
